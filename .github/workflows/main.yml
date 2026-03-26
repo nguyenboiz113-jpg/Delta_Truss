@@ -27,7 +27,7 @@ jobs:
 
       - name: Build exe
         run: |
-          python -m PyInstaller --onefile --windowed --name DeltaTruss --hidden-import openpyxl --icon icon.ico main.py
+          python -m PyInstaller --onefile --windowed --name DeltaTruss --hidden-import openpyxl --icon DeltaTruss.ico main.py
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4.6.2
