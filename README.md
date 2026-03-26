@@ -99,7 +99,7 @@ NOTES
   are present, or when no new files appear for 60 seconds (stall detection).
 - If a Base Directory is missing Trusses\ or Presets\, it will be skipped
   and an empty sheet will appear in the Excel report.
-- Max 6 base dirs run in parallel. Each base dir launches 2 TrussStudio
+- Max 4 base dirs run in parallel. Each base dir launches 2 TrussStudio
   instances (V1 + V2), staggered 3 seconds apart to avoid license conflicts.
 
 ================================================================================
