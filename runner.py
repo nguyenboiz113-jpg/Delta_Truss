@@ -1,26 +1,6 @@
 # runner.py
 import os
-import shutil
 import subprocess
-
-
-def run_studio(studio_dir, xml_path):
-    print(f"Đang chạy TrussStudio: {studio_dir}")
-    exe = os.path.join(studio_dir, "TrussStudio.exe")
-    subprocess.run(
-        [exe, f"/E:{xml_path}"],
-        cwd=studio_dir,
-        creationflags=subprocess.CREATE_NEW_CONSOLE
-    )
-    print(f"Xong: {studio_dir}")
-
-
-def cleanup(copy_v1, copy_v2):
-    shutil.rmtree(copy_v1)
-    shutil.rmtree(copy_v2)
-    print("Cleanup xong")
-
-import concurrent.futures
 import threading
 import time
 
@@ -28,6 +8,13 @@ import time
 _studio_launch_lock = threading.Lock()
 _last_launch_time = [0.0]
 STUDIO_LAUNCH_DELAY = 3.0  # giây giữa mỗi lần mở studio
+
+
+def cleanup(copy_v1, copy_v2):
+    import shutil
+    shutil.rmtree(copy_v1)
+    shutil.rmtree(copy_v2)
+
 
 def _launch_studio(studio_dir, xml_path):
     """Mở studio với stagger toàn cục"""
