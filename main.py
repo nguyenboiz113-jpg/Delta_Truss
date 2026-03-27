@@ -173,7 +173,7 @@ def run():
             ver_v2 = parse_version(studio_v2)
 
             import time
-            log(f"Running {len(base_dirs)} base(s), max 4 at a time...")
+            log(f"Running {len(base_dirs)} base(s), max 5 at a time...")
             base_all_results = {}
 
 
@@ -270,13 +270,14 @@ def run():
 
             truss_counts = {bd: count_trusses(bd) for bd in base_dirs}
             sorted_base_dirs = sorted(base_dirs, key=lambda bd: truss_counts[bd], reverse=True)
-            for i, bd in enumerate(sorted_base_dirs):
-                log(f"  [{i+1}] {os.path.basename(bd)} — {truss_counts[bd]} truss(es)")
+            for bd in sorted_base_dirs:
+                orig_idx = base_dirs.index(bd) + 1
+                log(f"  [Base Dir {orig_idx}] {os.path.basename(bd)} — {truss_counts[bd]} truss(es)")
 
-            with concurrent.futures.ThreadPoolExecutor(max_workers=min(4, len(sorted_base_dirs))) as executor:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=min(5, len(sorted_base_dirs))) as executor:
                 futures = {
-                    executor.submit(run_one, bd, i+1): bd
-                    for i, bd in enumerate(sorted_base_dirs)
+                    executor.submit(run_one, bd, base_dirs.index(bd) + 1): bd
+                    for bd in sorted_base_dirs
                 }
                 for future in concurrent.futures.as_completed(futures):
                     try:
