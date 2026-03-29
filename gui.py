@@ -71,39 +71,19 @@ def get_selected_base_dir(label_text):
 def refresh_dropdowns():
     """Update dropdown menus when base directories change"""
     global var_output_base, var_extract_base, dd_output, dd_extract
-    
-    # Check if dropdowns exist and are ready (not None)
-    if var_output_base is None or dd_output is None or var_extract_base is None or dd_extract is None:
+
+    if None in (var_output_base, dd_output, var_extract_base, dd_extract):
         return
-    
+
     dirs = get_base_dirs()
-    
-    # Update both dropdowns
-    dropdown_list = [(var_output_base, dd_output), (var_extract_base, dd_extract)]
-    for var, dd in dropdown_list:
+    labels = [f"Base Dir {i+1}" for i in range(len(dirs))] if dirs else ["-"]
+
+    for var, dd in [(var_output_base, dd_output), (var_extract_base, dd_extract)]:
         try:
-            # Clear existing menu
-            menu = dd["menu"]
-            menu.delete(0, "end")
-            
-            # Add new options
-            if dirs:
-                for i, d in enumerate(dirs):
-                    label = f"Base Dir {i+1}"
-                    # Store label text in variable (display purposes)
-                    # When clicked, command sets the variable to the label
-                    menu.add_command(
-                        label=label,
-                        command=lambda lbl=label, v=var: v.set(lbl)
-                    )
-                # Set default to "Base Dir 1"
-                var.set("Base Dir 1")
-            else:
-                # No directories - show "-"
-                var.set("-")
-                menu.add_command(label="-")
-        except Exception as e:
-            pass  # Silently fail if there's an issue
+            dd["values"] = labels
+            var.set(labels[0])
+        except Exception:
+            pass
 
 
 def add_base_row(value=""):
@@ -298,10 +278,8 @@ def setup_gui(callbacks):
     run_frame.grid(row=6, column=0, columnspan=3, pady=14)
     btn_run = ttk.Button(run_frame, text="▶  Run", style="Blue.TButton", command=callbacks["run"], width=20)
     btn_run.pack(side=tk.LEFT, padx=(0, 8))
-    dd_output = tk.OptionMenu(run_frame, var_output_base, "")
-    dd_output.config(bg=ACCENT, fg="white", font=("Segoe UI", 9, "bold"),
-                     activebackground=ACCENT2, activeforeground="white",
-                     relief="flat", bd=0, highlightthickness=0, width=16)
+    dd_output = ttk.Combobox(run_frame, textvariable=var_output_base,
+                             state="readonly", width=18, font=("Segoe UI", 9))
     dd_output.pack(side=tk.LEFT, padx=(0, 8))
     ttk.Button(run_frame, text="📁  Output", style="Blue.TButton",
                command=callbacks["open_output"], width=14).pack(side=tk.LEFT, padx=(0, 8))
@@ -325,10 +303,8 @@ def setup_gui(callbacks):
     btn_extract = ttk.Button(extract_frame, text="⬇  Extract", style="Blue.TButton", 
                              command=callbacks["extract"], width=20)
     btn_extract.pack(side=tk.LEFT, padx=(0, 8))
-    dd_extract = tk.OptionMenu(extract_frame, var_extract_base, "")
-    dd_extract.config(bg=ACCENT, fg="white", font=("Segoe UI", 9, "bold"),
-                      activebackground=ACCENT2, activeforeground="white",
-                      relief="flat", bd=0, highlightthickness=0, width=16)
+    dd_extract = ttk.Combobox(extract_frame, textvariable=var_extract_base,
+                              state="readonly", width=18, font=("Segoe UI", 9))
     dd_extract.pack(side=tk.LEFT, padx=(0, 8))
     ttk.Button(extract_frame, text="📁  Extracted", style="Blue.TButton",
                command=callbacks["open_extract_dir"], width=14).pack(side=tk.LEFT)
