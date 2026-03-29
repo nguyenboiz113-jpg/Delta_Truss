@@ -5,13 +5,6 @@ from parse import parse_version
 
 
 def extract_files(base_dir, studio_v1, studio_v2, filenames_raw, patched_v1=False, patched_v2=False):
-    """
-    base_dir: thư mục gốc
-    studio_v1, studio_v2: path studio để parse version
-    filenames_raw: string paste từ GUI
-    patched_v1: nếu True thì dùng thư mục ver_v1_patched
-    patched_v2: nếu True thì dùng thư mục ver_v2_patched
-    """
     ver_v1      = parse_version(studio_v1)
     ver_v2      = parse_version(studio_v2)
     ver_v1_dir  = ver_v1 + "_patched" if patched_v1 else ver_v1
@@ -21,15 +14,21 @@ def extract_files(base_dir, studio_v1, studio_v2, filenames_raw, patched_v1=Fals
     extract_dir = os.path.join(base_dir, "output", "diff_files")
     extract_v1  = os.path.join(extract_dir, ver_v1_dir)
     extract_v2  = os.path.join(extract_dir, ver_v2_dir)
+    extract_truss = os.path.join(extract_dir, "Trusses")  # thêm
 
     if os.path.exists(extract_v1):
         shutil.rmtree(extract_v1)
     if os.path.exists(extract_v2):
         shutil.rmtree(extract_v2)
+    if os.path.exists(extract_truss):  # thêm
+        shutil.rmtree(extract_truss)   # thêm
     os.makedirs(extract_v1)
     os.makedirs(extract_v2)
+    os.makedirs(extract_truss)  # thêm
 
     filenames = [f.strip() for f in filenames_raw.replace("\n", " ").split() if f.strip()]
+
+    trusses_dir = os.path.join(base_dir, "Trusses")  # thêm
 
     results = []
     for filename in filenames:
@@ -45,6 +44,12 @@ def extract_files(base_dir, studio_v1, studio_v2, filenames_raw, patched_v1=Fals
         if os.path.exists(src_v2):
             shutil.copy2(src_v2, os.path.join(extract_v2, filename))
             ok_v2 = True
+
+        # Copy file .tdlTruss tương ứng (bỏ .txt, tìm .tdlTruss)  # thêm
+        truss_name = os.path.splitext(filename)[0].replace("project_", "") + ".tdlTruss"   # thêm
+        src_truss  = os.path.join(trusses_dir, truss_name)         # thêm
+        if os.path.exists(src_truss):                               # thêm
+            shutil.copy2(src_truss, os.path.join(extract_truss, truss_name))  # thêm
 
         results.append({
             "filename": filename,
