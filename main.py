@@ -7,13 +7,13 @@ import concurrent.futures
 import time
 import config
 from config import load_config, save_config
-from xml_builder import copy_project, build_xml, patch_compatibility_version
-from runner import run_studios_parallel, cleanup
+from engine.xml_builder import copy_project, build_xml, patch_compatibility_version
+from engine.runner import run_studios_parallel, cleanup
 from comparator import compare_file
-from excel_writer import write_report
-from extract import extract_files
+from report.excel_writer import write_report
+from tools.extract import extract_files
 from parse import parse_version, get_version_number
-from gui import setup_gui, get_selected_base_dir
+from gui.gui import setup_gui, get_selected_base_dir
 from tkinter import messagebox
 
 load_config()
