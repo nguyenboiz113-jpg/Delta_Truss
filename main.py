@@ -9,7 +9,7 @@ import config
 from config import load_config, save_config
 from engine.xml_builder import copy_project, build_xml, patch_compatibility_version
 from engine.runner import run_studios_parallel, cleanup
-from comparator import compare_file
+from comparator.compare_file import compare_file
 from report.excel_writer import write_report
 from tools.extract import extract_files
 from parse import parse_version, get_version_number
