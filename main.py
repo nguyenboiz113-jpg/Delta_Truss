@@ -15,6 +15,7 @@ from tools.extract import extract_files
 from parse import parse_version, get_version_number
 from gui.gui import setup_gui, get_selected_base_dir
 from tkinter import messagebox
+from parser.tdl_parser import parse_tdl
 
 load_config()
 
@@ -31,6 +32,25 @@ def log(msg):
         txt_log.see(tk.END)
         if gui_root:
             gui_root.update()
+
+
+def _parse_profiles(base_dir, filenames):
+    """
+    Parse tdl profile cho từng file trong danh sách.
+    filename format: "project_0031.txt" → "0031.tdlTruss"
+    Trả về dict {filename: profile_dict}
+    """
+    profiles = {}
+    trusses_dir = os.path.join(base_dir, "Trusses")
+    for filename in filenames:
+        # project_0031.txt → 0031.tdlTruss
+        stem = filename.replace("project_", "").replace(".txt", "")
+        tdl_path = os.path.join(trusses_dir, f"{stem}.tdlTruss")
+        if os.path.exists(tdl_path):
+            profile = parse_tdl(tdl_path)
+            if profile:
+                profiles[filename] = profile
+    return profiles
 
 
 def run():
@@ -62,7 +82,7 @@ def run():
 
             log(f"Running {len(base_dirs)} base(s), max 5 at a time...")
             base_all_results = {}
-
+            base_profiles    = {}
 
             def run_one(bd, idx):
                 copy_v1 = copy_v2 = None
@@ -92,8 +112,6 @@ def run():
                     log(f"[Base Dir {idx}] Launching TrussStudio {ver_v1} & {ver_v2}...")
                     run_studios_parallel(studio_v1, xml_v1, studio_v2, xml_v2)
 
-                    # Đợi TrussStudio ghi đủ file ra disk
-                    # Thoát khi đủ file, hoặc khi số file không tăng trong 60s (TrussStudio đã xong/crash)
                     expected = len(list(__import__('pathlib').Path(os.path.join(bd, "Trusses")).glob("*.tdlTruss")))
                     done_v1 = done_v2 = 0
                     last_log = time.time()
@@ -114,7 +132,6 @@ def run():
                             last_log = time.time()
                         time.sleep(0.5)
 
-                    # Xóa XML và cleanup sau khi TrussStudio đã xong
                     os.remove(xml_v1)
                     os.remove(xml_v2)
                     cleanup(copy_v1, copy_v2)
@@ -132,12 +149,16 @@ def run():
                         results = compare_file(fv1, fv2)
                         all_results.append((filename, results))
 
+                    # Parse tdl profiles
+                    log(f"[Base Dir {idx}] Parsing truss profiles...")
+                    filenames = [f for f, _ in all_results]
+                    profiles = _parse_profiles(bd, filenames)
+
                     log(f"[Base Dir {idx}] ✅ Done: {len(all_results)} file(s)")
-                    return bd, all_results
+                    return bd, all_results, profiles
 
                 except Exception as e:
                     log(f"[Base Dir {idx}] ❌ ERROR: {e}")
-                    # Cleanup nếu copy còn tồn tại
                     try:
                         if copy_v1 and os.path.exists(copy_v1):
                             shutil.rmtree(copy_v1)
@@ -145,9 +166,9 @@ def run():
                             shutil.rmtree(copy_v2)
                     except Exception:
                         pass
-                    return bd, []
+                    return bd, [], {}
 
-            # Sort base dirs: nặng nhất (nhiều .tdlTruss) chạy trước
+            # Sort base dirs: nặng nhất chạy trước
             from pathlib import Path as _Path
             def count_trusses(bd):
                 trusses_dir = os.path.join(bd, "Trusses")
@@ -168,8 +189,9 @@ def run():
                 }
                 for future in concurrent.futures.as_completed(futures):
                     try:
-                        bd_result, results = future.result()
+                        bd_result, results, profiles = future.result()
                         base_all_results[bd_result] = results
+                        base_profiles[bd_result]    = profiles
                         if not results:
                             log(f"⚠️ [{os.path.basename(bd_result)}] Failed or no results, sheet will be empty.")
                     except Exception as e:
@@ -177,10 +199,11 @@ def run():
 
             # Giữ thứ tự Excel theo thứ tự user nhập ban đầu
             base_all_results = {bd: base_all_results[bd] for bd in base_dirs if bd in base_all_results}
+            base_profiles    = {bd: base_profiles.get(bd, {}) for bd in base_dirs if bd in base_all_results}
 
             parent_dir = os.path.dirname(base_dirs[0])
             xlsx_path = os.path.join(parent_dir, "compare_results.xlsx")
-            write_report(base_all_results, xlsx_path)
+            write_report(base_all_results, xlsx_path, base_profiles)
             log(f"\nCompleted! Results saved to: {xlsx_path}")
             messagebox.showinfo("Done", f"Completed!\n{xlsx_path}")
 
