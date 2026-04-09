@@ -1,5 +1,6 @@
 # comparator.py
 import re
+import difflib
 
 
 def split_sections(filepath):
@@ -43,9 +44,12 @@ def compare_sections(sections_v1, sections_v2):
 
         # Đếm dòng khác nhau
         diff_count = 0
-        for l1, l2 in zip(lines_v1, lines_v2):
-            if l1 != l2:
-                diff_count += 1
+        matcher = difflib.SequenceMatcher(None, lines_v1, lines_v2)
+        diff_count = 0
+
+        for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+            if tag != "equal":
+                diff_count += max(i2 - i1, j2 - j1)
 
         # Dòng thừa ở file dài hơn tính là khác
         diff_count += abs(len(lines_v1) - len(lines_v2))
