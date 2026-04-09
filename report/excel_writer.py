@@ -11,18 +11,18 @@ GRAY_LIGHT  = PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type="s
 BOLD        = Font(bold=True)
 
 PROFILE_COLS = [
-    ("Truss Label",       "truss_label"),
-    ("Plys",              "plys"),
-    ("Wind",              "wind"),
-    ("Snow",              "snow"),
-    ("Status",            "analysis_status"),
-    ("Load Template",     "load_template"),
+    ("Truss Label",   "truss_label"),
+    ("Plys",          "plys"),
+    ("Wind",          "wind"),
+    ("Snow",          "snow"),
+    ("Status",        "analysis_status"),
+    ("Version",       "version"),
+    ("Load Template", "load_template"),
 ]
-N_PROFILE = len(PROFILE_COLS)  # 6
+N_PROFILE = len(PROFILE_COLS)  # 7
 
 
 def _profile_fill(key, value):
-    """Trả về fill color cho ô profile dựa trên giá trị."""
     if key == "analysis_status":
         return GREEN if value == "Passed" else RED
     if key in ("wind", "snow"):
@@ -31,10 +31,6 @@ def _profile_fill(key, value):
 
 
 def write_sheet(ws, all_results, profiles=None):
-    """
-    Ghi dữ liệu compare vào 1 worksheet.
-    profiles: dict {filename: {truss_label, plys, wind, snow, analysis_status, load_template}}
-    """
     if profiles is None:
         profiles = {}
 
@@ -42,7 +38,6 @@ def write_sheet(ws, all_results, profiles=None):
         ws.cell(row=1, column=1, value="No results (base dir failed or missing Trusses/Presets folder)").font = BOLD
         return
 
-    # Collect ALL sections across all files (preserve order, no duplicates)
     seen = set()
     sections = []
     for _, results in all_results:
@@ -51,13 +46,11 @@ def write_sheet(ws, all_results, profiles=None):
                 seen.add(r["section"])
                 sections.append(r["section"])
 
-    # --- Header row 1 ---
-    # Col 1: File
+    # Header row 1
     c = ws.cell(row=1, column=1, value="File")
     c.font = BOLD
     c.fill = GRAY_LIGHT
 
-    # Col 2..N_PROFILE+1: Profile headers
     for i, (label, _) in enumerate(PROFILE_COLS):
         col = 2 + i
         c = ws.cell(row=1, column=col, value=label)
@@ -65,7 +58,6 @@ def write_sheet(ws, all_results, profiles=None):
         c.fill = BLUE_LIGHT
         c.alignment = Alignment(horizontal="center", wrap_text=True)
 
-    # Col N_PROFILE+2 onwards: Section headers (merged, 2 cols each)
     section_start_col = 2 + N_PROFILE
     col = section_start_col
     for section in sections:
@@ -73,12 +65,9 @@ def write_sheet(ws, all_results, profiles=None):
         ws.merge_cells(start_row=1, start_column=col, end_row=1, end_column=col + 1)
         ws.cell(row=1, column=col).alignment = Alignment(horizontal="center")
         col += 2
-
-    # "Sections with diff" header
     ws.cell(row=1, column=col, value="Sections with diff").font = BOLD
 
-    # --- Header row 2 (sub-headers for sections) ---
-    # Blank row 2 for profile columns
+    # Header row 2
     for i in range(N_PROFILE + 1):
         ws.cell(row=2, column=1 + i, value="")
 
@@ -88,12 +77,10 @@ def write_sheet(ws, all_results, profiles=None):
         ws.cell(row=2, column=col + 1, value="%").font    = BOLD
         col += 2
 
-    # --- Data rows ---
+    # Data rows
     for row_idx, (filename, results) in enumerate(all_results, 3):
-        # Col 1: filename
         file_cell = ws.cell(row=row_idx, column=1, value=filename)
 
-        # Col 2..N_PROFILE+1: Profile data
         profile = profiles.get(filename, {})
         for i, (_, key) in enumerate(PROFILE_COLS):
             col = 2 + i
@@ -102,7 +89,6 @@ def write_sheet(ws, all_results, profiles=None):
             if profile:
                 c.fill = _profile_fill(key, value)
 
-        # Section diff columns
         result_map = {r["section"]: r for r in results}
         diff_sections = []
         has_any_diff = False
@@ -126,15 +112,12 @@ def write_sheet(ws, all_results, profiles=None):
                 ws.cell(row=row_idx, column=col + 1, value="-")
             col += 2
 
-        # File cell color: đỏ nếu có diff, xanh nếu không
         file_cell.fill = RED if has_any_diff else GREEN
-
-        # "Sections with diff" cell
         ws.cell(row=row_idx, column=col, value=", ".join(diff_sections) if diff_sections else "-")
 
-    # --- Column widths ---
+    # Column widths
     ws.column_dimensions["A"].width = 25
-    profile_widths = [30, 6, 6, 6, 10, 60]
+    profile_widths = [30, 6, 6, 6, 10, 15, 60]
     for i, w in enumerate(profile_widths):
         ws.column_dimensions[openpyxl.utils.get_column_letter(2 + i)].width = w
 
@@ -145,16 +128,10 @@ def write_sheet(ws, all_results, profiles=None):
         col += 2
     ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width = 40
 
-    # Freeze panes: freeze row 1-2 và col A
     ws.freeze_panes = ws.cell(row=3, column=2)
 
 
 def write_report(base_all_results, output_path, base_profiles=None):
-    """
-    base_all_results : dict {base_dir: [(filename, results)]}
-    base_profiles    : dict {base_dir: {filename: profile_dict}}  — optional
-    output_path      : đường dẫn file Excel xuất ra
-    """
     if base_profiles is None:
         base_profiles = {}
 

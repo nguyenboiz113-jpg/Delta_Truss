@@ -112,11 +112,15 @@ def parse_tdl(filepath):
     status_el       = state_el.find("AnalysisStatus") if state_el is not None else None
     analysis_status = status_el.get("Val", "") if status_el is not None else ""
 
+    # version
+    version = root.get("Version", "")
+
     return {
         "truss_label":     truss_label,
         "plys":            plys,
         "wind":            wind,
         "snow":            snow,
         "analysis_status": analysis_status,
+        "version":         version,
         "load_template":   load_template,
     }
