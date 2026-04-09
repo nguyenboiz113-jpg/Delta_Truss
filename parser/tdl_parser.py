@@ -74,6 +74,11 @@ def _parse_snow(load_template):
     return "Yes" if "Pg=" in load_template else "No"
 
 
+def _trim_load_template(load_template):
+    m = re.search(r'[A-Z]+-\d{4}/', load_template)
+    return load_template[m.start():] if m else load_template
+
+
 def parse_tdl(filepath):
     try:
         tree = ET.parse(filepath)
@@ -101,11 +106,13 @@ def parse_tdl(filepath):
     # load_template
     loading_el    = root.find("Loading")
     template_el   = loading_el.find("LoadTemplate") if loading_el is not None else None
-    load_template = template_el.get("Description", "") if template_el is not None else ""
+    raw_template  = template_el.get("Description", "") if template_el is not None else ""
 
-    # wind / snow
-    wind = _parse_wind(load_template)
-    snow = _parse_snow(load_template)
+    # wind / snow từ raw template trước khi trim
+    wind = _parse_wind(raw_template)
+    snow = _parse_snow(raw_template)
+
+    load_template = _trim_load_template(raw_template)
 
     # analysis_status
     state_el        = root.find("State")
