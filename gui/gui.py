@@ -12,7 +12,7 @@ TEXT    = "#2a3550"
 SUBTEXT = "#7a8aaa"
 BORDER  = "#c5d0e8"
 
-# Global GUI variables (populated in setup_gui)
+# Global GUI variables
 root = None
 txt_log = None
 txt_extract = None
@@ -42,9 +42,11 @@ def browse_dir(entry):
 
 
 def log(msg):
-    txt_log.insert(tk.END, msg + "\n")
-    txt_log.see(tk.END)
-    root.update()
+    if txt_log:
+        txt_log.insert(tk.END, msg + "\n")
+        txt_log.see(tk.END)
+        if root:
+            root.update()
 
 
 def get_base_dirs():
@@ -58,7 +60,6 @@ def get_selected_base_dir(label_text):
         return dirs[0] if dirs else None
     
     try:
-        # Extract number from 'Base Dir N'
         idx = int(label_text.replace("Base Dir ", "")) - 1
         if 0 <= idx < len(dirs):
             return dirs[idx]
@@ -69,33 +70,32 @@ def get_selected_base_dir(label_text):
 
 
 def refresh_dropdowns():
-    """Cập nhật dropdown Output và Extract một cách an toàn hơn"""
+    """Cập nhật dropdown Output và Extract"""
     if (var_output_base is None or dd_output is None or 
         var_extract_base is None or dd_extract is None):
         return
 
     dirs = get_base_dirs()
     n = len(dirs)
+    options = [f"Base Dir {i+1}" for i in range(n)] if n > 0 else ["-"]
 
     for var, dd in [(var_output_base, dd_output), (var_extract_base, dd_extract)]:
         try:
             menu = dd["menu"]
-            menu.delete(0, tk.END)          # Xóa sạch cũ
+            menu.delete(0, tk.END)
 
             if n == 0:
                 var.set("-")
                 menu.add_command(label="-")
                 continue
 
-            for i in range(n):
-                label = f"Base Dir {i+1}"
-                # Lambda đúng cách để tránh lỗi late binding
+            for label in options:
                 menu.add_command(
                     label=label,
                     command=lambda lbl=label, v=var: v.set(lbl)
                 )
 
-            var.set("Base Dir 1")   # Mặc định luôn là Base Dir 1
+            var.set("Base Dir 1" if n > 0 else "-")
 
         except Exception as e:
             print(f"[Dropdown Refresh Error] {e}")
@@ -142,7 +142,7 @@ def add_base_row(value=""):
 
     row_data = {"entry": entry, "frame": row_frame, "label": lbl}
     base_rows.append(row_data)
-    refresh_dropdowns()
+    refresh_dropdowns()   # Refresh sau khi thêm row
 
 
 def on_add_base():
@@ -196,7 +196,7 @@ def setup_gui(callbacks):
     root.minsize(600, 500)
     root.columnconfigure(0, weight=1)
 
-    # Style
+    # Style (giữ nguyên)
     style = ttk.Style()
     style.theme_use("clam")
     style.configure("Blue.TButton", background=ACCENT, foreground="white",
@@ -266,9 +266,13 @@ def setup_gui(callbacks):
     bases_canvas.bind("<MouseWheel>", _on_mousewheel)
     bases_frame.bind("<MouseWheel>", _on_mousewheel)
 
+    # Load saved base dirs
     saved_bases = config.CONFIG.get("base_dirs") or [config.CONFIG.get("base_dir", "")]
     for val in saved_bases:
         add_base_row(val)
+
+    if not base_rows:  # Đảm bảo ít nhất có 1 hàng
+        add_base_row()
 
     # Separator
     tk.Frame(content, height=1, bg=BORDER).grid(row=2, column=0, columnspan=3, sticky="ew", pady=8)
@@ -287,17 +291,22 @@ def setup_gui(callbacks):
     ttk.Checkbutton(chk_frame, text="Patch CompatibilityVersion (V2)",
                     variable=var_patch, style="TCheckbutton").pack(side=tk.LEFT)
 
-    # Run row
-    var_output_base = tk.StringVar()
+    # ==================== RUN ROW ====================
     run_frame = tk.Frame(content, bg=BG)
     run_frame.grid(row=6, column=0, columnspan=3, pady=14)
-    btn_run = ttk.Button(run_frame, text="▶  Run", style="Blue.TButton", command=callbacks["run"], width=20)
+    
+    btn_run = ttk.Button(run_frame, text="▶  Run", style="Blue.TButton", 
+                         command=callbacks["run"], width=20)
     btn_run.pack(side=tk.LEFT, padx=(0, 8))
+
+    # Dropdown Output
+    var_output_base = tk.StringVar(value="Base Dir 1")
     dd_output = tk.OptionMenu(run_frame, var_output_base, "")
     dd_output.config(bg=ACCENT, fg="white", font=("Segoe UI", 9, "bold"),
                      activebackground=ACCENT2, activeforeground="white",
                      relief="flat", bd=0, highlightthickness=0, width=16)
     dd_output.pack(side=tk.LEFT, padx=(0, 8))
+
     ttk.Button(run_frame, text="📁  Output", style="Blue.TButton",
                command=callbacks["open_output"], width=14).pack(side=tk.LEFT, padx=(0, 8))
     ttk.Button(run_frame, text="📊  Excel", style="Green.TButton",
@@ -306,25 +315,30 @@ def setup_gui(callbacks):
     # Separator
     tk.Frame(content, height=1, bg=BORDER).grid(row=7, column=0, columnspan=3, sticky="ew", pady=6)
 
-    # Extract section
+    # ==================== EXTRACT SECTION ====================
     tk.Label(content, text="Extract files:", bg=BG, fg=TEXT,
              font=("Segoe UI", 9, "bold")).grid(row=8, column=0, padx=(0, 6), pady=5, sticky="nw")
+    
     txt_extract = tk.Text(content, height=4, bg=PANEL, fg=TEXT,
                           relief="solid", bd=1, font=("Segoe UI", 9),
                           insertbackground=TEXT, padx=6, pady=5)
     txt_extract.grid(row=8, column=1, columnspan=2, padx=4, pady=5, sticky="ew")
 
-    var_extract_base = tk.StringVar()
     extract_frame = tk.Frame(content, bg=BG)
     extract_frame.grid(row=9, column=0, columnspan=3, pady=10)
+    
     btn_extract = ttk.Button(extract_frame, text="⬇  Extract", style="Blue.TButton", 
                              command=callbacks["extract"], width=20)
     btn_extract.pack(side=tk.LEFT, padx=(0, 8))
+
+    # Dropdown Extract
+    var_extract_base = tk.StringVar(value="Base Dir 1")
     dd_extract = tk.OptionMenu(extract_frame, var_extract_base, "")
     dd_extract.config(bg=ACCENT, fg="white", font=("Segoe UI", 9, "bold"),
                       activebackground=ACCENT2, activeforeground="white",
                       relief="flat", bd=0, highlightthickness=0, width=16)
     dd_extract.pack(side=tk.LEFT, padx=(0, 8))
+
     ttk.Button(extract_frame, text="📁  Extracted", style="Blue.TButton",
                command=callbacks["open_extract_dir"], width=14).pack(side=tk.LEFT)
 
