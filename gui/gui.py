@@ -77,7 +77,6 @@ def refresh_dropdowns():
 
     dirs = get_base_dirs()
     n = len(dirs)
-    options = [f"Base Dir {i+1}" for i in range(n)] if n > 0 else ["-"]
 
     for var, dd in [(var_output_base, dd_output), (var_extract_base, dd_extract)]:
         try:
@@ -89,7 +88,8 @@ def refresh_dropdowns():
                 menu.add_command(label="-")
                 continue
 
-            for label in options:
+            for i in range(n):
+                label = f"Base Dir {i+1}"
                 menu.add_command(
                     label=label,
                     command=lambda lbl=label, v=var: v.set(lbl)
@@ -142,7 +142,7 @@ def add_base_row(value=""):
 
     row_data = {"entry": entry, "frame": row_frame, "label": lbl}
     base_rows.append(row_data)
-    refresh_dropdowns()   # Refresh sau khi thêm row
+    refresh_dropdowns()        # Refresh sau khi thêm row
 
 
 def on_add_base():
@@ -196,7 +196,7 @@ def setup_gui(callbacks):
     root.minsize(600, 500)
     root.columnconfigure(0, weight=1)
 
-    # Style (giữ nguyên)
+    # ==================== STYLE ====================
     style = ttk.Style()
     style.theme_use("clam")
     style.configure("Blue.TButton", background=ACCENT, foreground="white",
@@ -270,8 +270,7 @@ def setup_gui(callbacks):
     saved_bases = config.CONFIG.get("base_dirs") or [config.CONFIG.get("base_dir", "")]
     for val in saved_bases:
         add_base_row(val)
-
-    if not base_rows:  # Đảm bảo ít nhất có 1 hàng
+    if not base_rows:
         add_base_row()
 
     # Separator
@@ -350,9 +349,10 @@ def setup_gui(callbacks):
                       insertbackground=TEXT, padx=8, pady=6)
     txt_log.grid(row=11, column=0, columnspan=3, pady=(2, 16), sticky="nsew")
 
+    # Final refresh
     refresh_dropdowns()
     
-    # Return root and all references
+    # Return root and gui references
     return root, {
         "txt_log": txt_log,
         "txt_extract": txt_extract,
