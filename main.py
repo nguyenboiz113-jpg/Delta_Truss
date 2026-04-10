@@ -15,7 +15,7 @@ from tools.extract import extract_files
 from parse import parse_version, get_version_number
 from gui.gui import setup_gui, get_selected_base_dir
 from tkinter import messagebox
-from parser.tdl_parser import parse_tdl
+from tdl_parser import parse_tdl
 
 load_config()
 
