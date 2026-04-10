@@ -69,41 +69,36 @@ def get_selected_base_dir(label_text):
 
 
 def refresh_dropdowns():
-    """Update dropdown menus when base directories change"""
-    global var_output_base, var_extract_base, dd_output, dd_extract
-    
-    # Check if dropdowns exist and are ready (not None)
-    if var_output_base is None or dd_output is None or var_extract_base is None or dd_extract is None:
+    """Cập nhật dropdown Output và Extract một cách an toàn hơn"""
+    if (var_output_base is None or dd_output is None or 
+        var_extract_base is None or dd_extract is None):
         return
-    
+
     dirs = get_base_dirs()
-    
-    # Update both dropdowns
-    dropdown_list = [(var_output_base, dd_output), (var_extract_base, dd_extract)]
-    for var, dd in dropdown_list:
+    n = len(dirs)
+
+    for var, dd in [(var_output_base, dd_output), (var_extract_base, dd_extract)]:
         try:
-            # Clear existing menu
             menu = dd["menu"]
-            menu.delete(0, "end")
-            
-            # Add new options
-            if dirs:
-                for i, d in enumerate(dirs):
-                    label = f"Base Dir {i+1}"
-                    # Store label text in variable (display purposes)
-                    # When clicked, command sets the variable to the label
-                    menu.add_command(
-                        label=label,
-                        command=lambda lbl=label, v=var: v.set(lbl)
-                    )
-                # Set default to "Base Dir 1"
-                var.set("Base Dir 1")
-            else:
-                # No directories - show "-"
+            menu.delete(0, tk.END)          # Xóa sạch cũ
+
+            if n == 0:
                 var.set("-")
                 menu.add_command(label="-")
+                continue
+
+            for i in range(n):
+                label = f"Base Dir {i+1}"
+                # Lambda đúng cách để tránh lỗi late binding
+                menu.add_command(
+                    label=label,
+                    command=lambda lbl=label, v=var: v.set(lbl)
+                )
+
+            var.set("Base Dir 1")   # Mặc định luôn là Base Dir 1
+
         except Exception as e:
-            pass  # Silently fail if there's an issue
+            print(f"[Dropdown Refresh Error] {e}")
 
 
 def add_base_row(value=""):
