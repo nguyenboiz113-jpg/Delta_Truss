@@ -236,19 +236,25 @@ def extract():
         messagebox.showerror("Error", "Please paste file names to extract.")
         return
 
-    base_dir = get_selected_base_dir(var_extract_base.get()) or base_dirs[0]
-
     def _extract():
         try:
             btn_extract.config(state=tk.DISABLED)
-            extract_dir, results = extract_files(base_dir, entry_v1.get(), entry_v2.get(), filenames_raw,
-                                                  patched_v1=var_patch_v1.get(), patched_v2=var_patch.get())
-            for r in results:
-                v1 = "OK" if r["ok_v1"] else "NOT FOUND"
-                v2 = "OK" if r["ok_v2"] else "NOT FOUND"
-                log(f"  {r['filename']}  v1={v1}  v2={v2}")
-            log(f"\nExtracted to: {extract_dir}")
-            messagebox.showinfo("Done", f"Extracted to:\n{extract_dir}")
+            all_extract_dirs = []
+            for idx, bd in enumerate(base_dirs, 1):
+                log(f"[Base Dir {idx}] Extracting from {os.path.basename(bd)}...")
+                try:
+                    extract_dir, results = extract_files(bd, entry_v1.get(), entry_v2.get(), filenames_raw,
+                                                         patched_v1=var_patch_v1.get(), patched_v2=var_patch.get())
+                    for r in results:
+                        v1 = "OK" if r["ok_v1"] else "NOT FOUND"
+                        v2 = "OK" if r["ok_v2"] else "NOT FOUND"
+                        log(f"  {r['filename']}  v1={v1}  v2={v2}")
+                    log(f"[Base Dir {idx}] Extracted to: {extract_dir}")
+                    all_extract_dirs.append(extract_dir)
+                except Exception as e:
+                    log(f"[Base Dir {idx}] ❌ ERROR: {e}")
+            if all_extract_dirs:
+                messagebox.showinfo("Done", "Extracted to:\n" + "\n".join(all_extract_dirs))
         except Exception as e:
             log(f"[ERROR] {e}")
             messagebox.showerror("Error", str(e))
