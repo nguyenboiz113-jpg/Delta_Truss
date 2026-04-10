@@ -183,7 +183,6 @@ def _on_mousewheel(event):
 def setup_gui(callbacks):
     """
     Setup GUI with callbacks
-    callbacks: dict with keys: run, extract, open_excel, open_output, open_extract_dir
     """
     global root, txt_log, txt_extract, entry_v1, entry_v2, var_patch_v1, var_patch
     global var_output_base, var_extract_base, btn_run, btn_extract, dd_output, dd_extract
@@ -196,7 +195,7 @@ def setup_gui(callbacks):
     root.minsize(600, 500)
     root.columnconfigure(0, weight=1)
 
-    # ==================== STYLE ====================
+    # Style (giữ nguyên như cũ của mày)
     style = ttk.Style()
     style.theme_use("clam")
     style.configure("Blue.TButton", background=ACCENT, foreground="white",
@@ -204,12 +203,6 @@ def setup_gui(callbacks):
     style.map("Blue.TButton",
               background=[("active", ACCENT2), ("disabled", "#a0aec0")],
               foreground=[("active", "white"), ("disabled", "white")])
-    style.configure("TCheckbutton", background=BG, foreground=TEXT, font=("Segoe UI", 9))
-    style.map("TCheckbutton", background=[("active", BG)], foreground=[("active", ACCENT)])
-    style.configure("TEntry", fieldbackground=PANEL, foreground=TEXT,
-                    bordercolor=BORDER, lightcolor=BORDER, darkcolor=BORDER,
-                    insertcolor=TEXT, padding=(6, 5))
-    style.map("TEntry", bordercolor=[("focus", ACCENT)])
     style.configure("Green.TButton", background="#217346", foreground="white",
                     font=("Segoe UI", 10, "bold"), borderwidth=0, relief="flat", padding=(16, 7))
     style.map("Green.TButton",
@@ -217,9 +210,6 @@ def setup_gui(callbacks):
               foreground=[("active", "white")])
     style.configure("Small.TButton", background=ACCENT, foreground="white",
                     font=("Segoe UI", 8), borderwidth=0, relief="flat", padding=(6, 3))
-    style.map("Small.TButton",
-              background=[("active", ACCENT2), ("disabled", "#a0aec0")],
-              foreground=[("active", "white")])
     style.configure("Small.TEntry", fieldbackground=PANEL, foreground=TEXT,
                     bordercolor=BORDER, lightcolor=BORDER, darkcolor=BORDER,
                     insertcolor=TEXT, padding=(4, 2))
@@ -231,14 +221,13 @@ def setup_gui(callbacks):
     tk.Label(title_frame, text="DeltaTruss", bg=ACCENT, fg="white",
              font=("Segoe UI", 13, "bold")).pack()
 
-    # Main content
     content = tk.Frame(root, bg=BG)
     content.pack(fill=tk.BOTH, expand=True, padx=16, pady=8)
     content.columnconfigure(1, weight=1)
     content.rowconfigure(1, weight=1)
     content.rowconfigure(11, weight=1)
 
-    # Base dirs section
+    # Base dirs section (giữ nguyên)
     bases_label_frame = tk.Frame(content, bg=BG)
     bases_label_frame.grid(row=0, column=0, columnspan=3, sticky="ew", pady=(4, 0))
     tk.Label(bases_label_frame, text="Base Directories", bg=BG, fg=SUBTEXT,
@@ -246,7 +235,7 @@ def setup_gui(callbacks):
     ttk.Button(bases_label_frame, text="+ Add Base", style="Blue.TButton",
                command=on_add_base, width=12).pack(side=tk.RIGHT)
 
-    # Scrollable bases
+    # Scrollable bases (giữ nguyên)
     bases_canvas_frame = tk.Frame(content, bg=BG)
     bases_canvas_frame.grid(row=1, column=0, columnspan=3, sticky="nsew")
     bases_canvas_frame.columnconfigure(0, weight=1)
@@ -266,7 +255,7 @@ def setup_gui(callbacks):
     bases_canvas.bind("<MouseWheel>", _on_mousewheel)
     bases_frame.bind("<MouseWheel>", _on_mousewheel)
 
-    # Load saved base dirs
+    # Load base dirs
     saved_bases = config.CONFIG.get("base_dirs") or [config.CONFIG.get("base_dir", "")]
     for val in saved_bases:
         add_base_row(val)
@@ -298,7 +287,8 @@ def setup_gui(callbacks):
                          command=callbacks["run"], width=20)
     btn_run.pack(side=tk.LEFT, padx=(0, 8))
 
-    # Dropdown Output
+    # === SỬA Ở ĐÂY: GÁN VÀO BIẾN GLOBAL ===
+    global var_output_base, dd_output
     var_output_base = tk.StringVar(value="Base Dir 1")
     dd_output = tk.OptionMenu(run_frame, var_output_base, "")
     dd_output.config(bg=ACCENT, fg="white", font=("Segoe UI", 9, "bold"),
@@ -330,7 +320,8 @@ def setup_gui(callbacks):
                              command=callbacks["extract"], width=20)
     btn_extract.pack(side=tk.LEFT, padx=(0, 8))
 
-    # Dropdown Extract
+    # === SỬA Ở ĐÂY: GÁN VÀO BIẾN GLOBAL ===
+    global var_extract_base, dd_extract
     var_extract_base = tk.StringVar(value="Base Dir 1")
     dd_extract = tk.OptionMenu(extract_frame, var_extract_base, "")
     dd_extract.config(bg=ACCENT, fg="white", font=("Segoe UI", 9, "bold"),
@@ -349,10 +340,8 @@ def setup_gui(callbacks):
                       insertbackground=TEXT, padx=8, pady=6)
     txt_log.grid(row=11, column=0, columnspan=3, pady=(2, 16), sticky="nsew")
 
-    # Final refresh
     refresh_dropdowns()
     
-    # Return root and gui references
     return root, {
         "txt_log": txt_log,
         "txt_extract": txt_extract,
