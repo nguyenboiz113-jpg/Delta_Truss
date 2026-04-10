@@ -80,10 +80,6 @@ def _write_summary_sheet(ws_summary, base_all_results, all_section_diff_counts):
     chart1.set_categories(cats)
     chart1.shape = 4
 
-    # Xoay label trục X 45°
-    chart1.x_axis.txPr = None
-    from openpyxl.chart.axis import TextBody
-    chart1.x_axis.numFmt = "General"
 
     ws_summary.add_chart(chart1, "E1")
 
