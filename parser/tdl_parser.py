@@ -75,6 +75,11 @@ def _parse_snow(load_template):
 
 
 def _trim_load_template(load_template):
+    # Bỏ phần load numbers + wind/snow, lấy từ building code trở đi
+    # Pattern: sau chuỗi dạng "...MPH-xxx/" hoặc "No Wind/"
+    m = re.search(r'(?:MPH-[^/]+|No Wind|No Snow)/([A-Z])', load_template)
+    if m:
+        return load_template[m.start(1):]
     m = re.search(r'[A-Z]+-\d{4}/', load_template)
     return load_template[m.start():] if m else load_template
 
