@@ -2,11 +2,15 @@
 import os
 import openpyxl
 from openpyxl.styles import PatternFill, Font, Alignment
-from openpyxl.chart import BarChart, Reference
-from openpyxl.chart.series import SeriesLabel
+from openpyxl.chart import PieChart, Reference
+from openpyxl.chart.series import DataPoint
+from openpyxl.chart.label import DataLabelList
+from openpyxl.drawing.spreadsheet_drawing import AbsoluteAnchor
+from openpyxl.drawing.xdr import XDRPoint2D, XDRPositiveSize2D
+from openpyxl.utils.units import cm_to_EMU
 
-GREEN       = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
-RED         = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
+GREEN_LIGHT = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
+RED_LIGHT   = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
 YELLOW      = PatternFill(start_color="FFEB9C", end_color="FFEB9C", fill_type="solid")
 BLUE_LIGHT  = PatternFill(start_color="DDEEFF", end_color="DDEEFF", fill_type="solid")
 GRAY_LIGHT  = PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type="solid")
@@ -23,105 +27,77 @@ PROFILE_COLS = [
 ]
 N_PROFILE = len(PROFILE_COLS)  # 7
 
+PIE_COLS      = 8
+PIE_CHART_W   = 5 * 0.95  # cm
+PIE_CHART_H   = 5 * 0.95  # cm
+
 
 def _profile_fill(key, value):
     if key == "analysis_status":
-        return GREEN if value == "Passed" else RED
+        return GREEN_LIGHT if value == "Passed" else RED_LIGHT
     if key in ("wind", "snow"):
         return YELLOW if value == "Yes" else GRAY_LIGHT
     return BLUE_LIGHT
 
 
-def _write_summary_sheet(ws_summary, base_all_results, all_section_diff_counts):
-    """Sheet 1: charts — Giống/Khác per base dir + Top sections bị diff."""
+def _write_summary_sheet(ws_summary, ws_data, base_all_results):
+    """Sheet Summary: pie chart % Different cho từng base dir."""
 
-    # --- Data table for Chart 1 (hidden, used by chart) ---
-    # Row 1: headers
-    ws_summary.cell(row=1, column=1, value="Base Dir").font = BOLD
-    ws_summary.cell(row=1, column=2, value="Same").font     = BOLD
-    ws_summary.cell(row=1, column=3, value="Different").font = BOLD
+    # Ghi data vào ws_data (sheet ẩn)
+    ws_data.cell(row=1, column=1, value="Same")
+    ws_data.cell(row=2, column=1, value="Different")
 
-    for i, (base_dir, all_results) in enumerate(base_all_results.items(), 2):
+    bases = []
+    for base_dir, all_results in base_all_results.items():
         name = os.path.basename(base_dir)
         same = sum(1 for _, results in all_results if all(r["diff_count"] == 0 for r in results))
         diff = len(all_results) - same
-        ws_summary.cell(row=i, column=1, value=name)
-        ws_summary.cell(row=i, column=2, value=same)
-        ws_summary.cell(row=i, column=3, value=diff)
+        bases.append((name, same, diff))
 
-    n_bases = len(base_all_results)
+    for i, (name, same, diff) in enumerate(bases):
+        ws_data.cell(row=1, column=2 + i, value=same)
+        ws_data.cell(row=2, column=2 + i, value=diff)
 
-    # Chart 1: Stacked bar — Giống vs Khác per base dir
-    chart1 = BarChart()
-    chart1.type    = "col"
-    chart1.barDir  = "col"
-    chart1.grouping = "stacked"
-    chart1.overlap  = 100
-    chart1.title   = "Same vs Different per Base Dir"
-    chart1.y_axis.title = "Files"
-    chart1.shape   = 4
-    chart1.width   = 20
-    chart1.height  = 14
+    # Vẽ pie chart cho từng base dir
+    for i, (name, same, diff) in enumerate(bases):
+        col_idx = i % PIE_COLS
+        row_idx = i // PIE_COLS
 
-    cats = Reference(ws_summary, min_col=1, min_row=2, max_row=1 + n_bases)
+        x = cm_to_EMU(col_idx * PIE_CHART_W)
+        y = cm_to_EMU(row_idx * PIE_CHART_H)
+        w = cm_to_EMU(PIE_CHART_W)
+        h = cm_to_EMU(PIE_CHART_H)
 
-    data_same = Reference(ws_summary, min_col=2, min_row=1, max_row=1 + n_bases)
-    s1 = openpyxl.chart.Series(data_same, title="Same")
-    s1.graphicalProperties.solidFill = "C6EFCE"
-    s1.graphicalProperties.line.solidFill = "70AD47"
+        pie = PieChart()
+        pie.title = name
+        pie.width = PIE_CHART_W
+        pie.height = PIE_CHART_H
 
-    data_diff = Reference(ws_summary, min_col=3, min_row=1, max_row=1 + n_bases)
-    s2 = openpyxl.chart.Series(data_diff, title="Different")
-    s2.graphicalProperties.solidFill = "FFC7CE"
-    s2.graphicalProperties.line.solidFill = "FF0000"
+        data_pie = Reference(ws_data, min_col=2 + i, min_row=1, max_row=2)
+        cats_pie = Reference(ws_data, min_col=1, min_row=1, max_row=2)
+        pie.add_data(data_pie)
+        pie.set_categories(cats_pie)
 
-    chart1.append(s1)
-    chart1.append(s2)
-    chart1.set_categories(cats)
-    chart1.shape = 4
+        pt_same = DataPoint(idx=0)
+        pt_same.graphicalProperties.solidFill = "70AD47"
+        pt_diff = DataPoint(idx=1)
+        pt_diff.graphicalProperties.solidFill = "FF4444"
+        pie.series[0].dPt = [pt_same, pt_diff]
 
+        pie.series[0].dLbls = DataLabelList()
+        pie.series[0].dLbls.showPercent = True
+        pie.series[0].dLbls.showVal = False
+        pie.series[0].dLbls.showCatName = False
+        pie.series[0].dLbls.showSerName = False
+        pie.series[0].dLbls.showLegendKey = False
 
-    ws_summary.add_chart(chart1, "E1")
-
-    # --- Data table for Chart 2 ---
-    # Top 15 sections bị diff nhiều nhất
-    sorted_sections = sorted(all_section_diff_counts.items(), key=lambda x: x[1], reverse=True)[:15]
-
-    sec_start_row = n_bases + 4
-    ws_summary.cell(row=sec_start_row, column=1, value="Section").font     = BOLD
-    ws_summary.cell(row=sec_start_row, column=2, value="Files with diff").font = BOLD
-
-    for j, (section, count) in enumerate(sorted_sections, 1):
-        ws_summary.cell(row=sec_start_row + j, column=1, value=section)
-        ws_summary.cell(row=sec_start_row + j, column=2, value=count)
-
-    # Chart 2: Horizontal bar — Top sections
-    chart2 = BarChart()
-    chart2.type     = "bar"
-    chart2.barDir   = "bar"
-    chart2.grouping = "clustered"
-    chart2.title    = "Top Sections with Most Diffs"
-    chart2.x_axis.title = "Files with diff"
-    chart2.width    = 20
-    chart2.height   = 14
-
-    cats2  = Reference(ws_summary, min_col=1, min_row=sec_start_row + 1, max_row=sec_start_row + len(sorted_sections))
-    data2  = Reference(ws_summary, min_col=2, min_row=sec_start_row,     max_row=sec_start_row + len(sorted_sections))
-    s3 = openpyxl.chart.Series(data2, title="Files with diff")
-    s3.graphicalProperties.solidFill = "DDEEFF"
-    s3.graphicalProperties.line.solidFill = "4472C4"
-    chart2.append(s3)
-    chart2.set_categories(cats2)
-
-    ws_summary.add_chart(chart2, "E16")
-
-    ws_summary.column_dimensions["A"].width = 30
-    ws_summary.column_dimensions["B"].width = 15
-    ws_summary.column_dimensions["C"].width = 15
+        anchor = AbsoluteAnchor(pos=XDRPoint2D(x, y), ext=XDRPositiveSize2D(w, h))
+        pie.anchor = anchor
+        ws_summary.add_chart(pie)
 
 
 def write_detail_sheet(ws, base_all_results, base_profiles=None):
-    """Sheet 2: tất cả base dir gộp vào 1 sheet, thêm cột Base Dir."""
+    """Sheet Detail: tất cả base dir gộp vào 1 sheet."""
     if base_profiles is None:
         base_profiles = {}
 
@@ -196,19 +172,19 @@ def write_detail_sheet(ws, base_all_results, base_profiles=None):
                     diff_cell = ws.cell(row=row_idx, column=col,     value=r["diff_count"])
                     pct_cell  = ws.cell(row=row_idx, column=col + 1, value=f"{r['diff_pct']}%")
                     if r["diff_count"] > 0:
-                        diff_cell.fill = RED
-                        pct_cell.fill  = RED
+                        diff_cell.fill = RED_LIGHT
+                        pct_cell.fill  = RED_LIGHT
                         diff_sections.append(r["section"])
                         has_any_diff = True
                     else:
-                        diff_cell.fill = GREEN
-                        pct_cell.fill  = GREEN
+                        diff_cell.fill = GREEN_LIGHT
+                        pct_cell.fill  = GREEN_LIGHT
                 else:
                     ws.cell(row=row_idx, column=col,     value="-")
                     ws.cell(row=row_idx, column=col + 1, value="-")
                 col += 2
 
-            file_cell.fill = RED if has_any_diff else GREEN
+            file_cell.fill = RED_LIGHT if has_any_diff else GREEN_LIGHT
             ws.cell(row=row_idx, column=col, value=", ".join(diff_sections) if diff_sections else "-")
             row_idx += 1
 
@@ -237,19 +213,15 @@ def write_report(base_all_results, output_path, base_profiles=None):
     wb = openpyxl.Workbook()
     wb.remove(wb.active)
 
-    # Tính section diff counts cho chart 2
-    all_section_diff_counts = {}
-    for _, all_results in base_all_results.items():
-        for _, results in all_results:
-            for r in results:
-                if r["diff_count"] > 0:
-                    all_section_diff_counts[r["section"]] = all_section_diff_counts.get(r["section"], 0) + 1
+    # Sheet ẩn chứa data cho pie charts
+    ws_data = wb.create_sheet(title="_data")
+    ws_data.sheet_state = "hidden"
 
-    # Sheet 1: Summary + Charts
+    # Sheet 1: Summary — pie charts
     ws_summary = wb.create_sheet(title="Summary")
-    _write_summary_sheet(ws_summary, base_all_results, all_section_diff_counts)
+    _write_summary_sheet(ws_summary, ws_data, base_all_results)
 
-    # Sheet 2: Detail — tất cả base dir gộp lại
+    # Sheet 2: Detail
     ws_detail = wb.create_sheet(title="Detail")
     write_detail_sheet(ws_detail, base_all_results, base_profiles)
 
