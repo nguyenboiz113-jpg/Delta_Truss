@@ -194,6 +194,10 @@ def setup_gui(callbacks):
                     insertcolor=TEXT, padding=(4, 2))
     style.map("Small.TEntry", bordercolor=[("focus", ACCENT)])
 
+    style.configure("TCheckbutton", background=BG, foreground=TEXT,
+                font=("Segoe UI", 9))
+    style.map("TCheckbutton", background=[("active", BG)])
+
     # Title bar
     title_frame = tk.Frame(root, bg=ACCENT, pady=13)
     title_frame.pack(fill=tk.X)
