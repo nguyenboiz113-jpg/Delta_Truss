@@ -58,21 +58,20 @@ def get_selected_base_dir(label_text):
     dirs = get_base_dirs()
     if not label_text or label_text == "-":
         return dirs[0] if dirs else None
-    
+
     try:
         idx = int(label_text.replace("Base Dir ", "")) - 1
         if 0 <= idx < len(dirs):
             return dirs[idx]
     except (ValueError, IndexError):
         pass
-    
+
     return dirs[0] if dirs else None
 
 
 def refresh_dropdowns():
     """Cập nhật dropdown Output và Extract"""
-    if (var_output_base is None or dd_output is None or
-        var_extract_base is None or dd_extract is None):
+    if dd_output is None or dd_extract is None:
         return
 
     dirs = get_base_dirs()
@@ -80,12 +79,9 @@ def refresh_dropdowns():
     labels = [f"Base Dir {i+1}" for i in range(n)] if n > 0 else ["-"]
 
     for var, dd in [(var_output_base, dd_output), (var_extract_base, dd_extract)]:
-        try:
-            dd["values"] = labels
-            if var.get() not in labels:
-                var.set(labels[0])
-        except Exception as e:
-            print(f"[Dropdown Refresh Error] {e}")
+        dd.config(values=labels)
+        if var.get() not in labels:
+            var.set(labels[0])
 
 
 def add_base_row(value=""):
@@ -107,7 +103,6 @@ def add_base_row(value=""):
     def remove_row():
         base_rows.remove(row_data)
         row_frame.destroy()
-        # Relabel remaining rows
         for i, r in enumerate(base_rows):
             r["label"].config(text=f"Base Dir {i+1}")
         refresh_dropdowns()
@@ -116,7 +111,6 @@ def add_base_row(value=""):
                             command=remove_row)
     btn_remove.pack(side=tk.LEFT)
 
-    # Bind mousewheel
     def _bind_mw(widget):
         try:
             widget.bind("<MouseWheel>", _on_mousewheel)
@@ -129,7 +123,7 @@ def add_base_row(value=""):
 
     row_data = {"entry": entry, "frame": row_frame, "label": lbl}
     base_rows.append(row_data)
-    refresh_dropdowns()        # Refresh sau khi thêm row
+    refresh_dropdowns()
 
 
 def on_add_base():
@@ -168,12 +162,12 @@ def _on_mousewheel(event):
 
 
 def setup_gui(callbacks):
-    """
-    Setup GUI with callbacks
-    """
     global root, txt_log, txt_extract, entry_v1, entry_v2, var_patch_v1, var_patch
     global var_output_base, var_extract_base, btn_run, btn_extract, dd_output, dd_extract
     global bases_canvas, bases_scrollbar, bases_frame, bases_frame_id
+
+    # Reset base_rows mỗi lần setup để tránh data cũ
+    base_rows.clear()
 
     root = tk.Tk()
     root.title("DeltaTruss")
@@ -182,7 +176,6 @@ def setup_gui(callbacks):
     root.minsize(600, 500)
     root.columnconfigure(0, weight=1)
 
-    # Style (giữ nguyên như cũ của mày)
     style = ttk.Style()
     style.theme_use("clam")
     style.configure("Blue.TButton", background=ACCENT, foreground="white",
@@ -214,7 +207,7 @@ def setup_gui(callbacks):
     content.rowconfigure(1, weight=1)
     content.rowconfigure(11, weight=1)
 
-    # Base dirs section (giữ nguyên)
+    # Base dirs section
     bases_label_frame = tk.Frame(content, bg=BG)
     bases_label_frame.grid(row=0, column=0, columnspan=3, sticky="ew", pady=(4, 0))
     tk.Label(bases_label_frame, text="Base Directories", bg=BG, fg=SUBTEXT,
@@ -222,7 +215,7 @@ def setup_gui(callbacks):
     ttk.Button(bases_label_frame, text="+ Add Base", style="Blue.TButton",
                command=on_add_base, width=12).pack(side=tk.RIGHT)
 
-    # Scrollable bases (giữ nguyên)
+    # Scrollable bases
     bases_canvas_frame = tk.Frame(content, bg=BG)
     bases_canvas_frame.grid(row=1, column=0, columnspan=3, sticky="nsew")
     bases_canvas_frame.columnconfigure(0, weight=1)
@@ -241,13 +234,6 @@ def setup_gui(callbacks):
     bases_canvas.bind("<Configure>", _on_canvas_resize)
     bases_canvas.bind("<MouseWheel>", _on_mousewheel)
     bases_frame.bind("<MouseWheel>", _on_mousewheel)
-
-    # Load base dirs
-    saved_bases = config.CONFIG.get("base_dirs") or [config.CONFIG.get("base_dir", "")]
-    for val in saved_bases:
-        add_base_row(val)
-    if not base_rows:
-        add_base_row()
 
     # Separator
     tk.Frame(content, height=1, bg=BORDER).grid(row=2, column=0, columnspan=3, sticky="ew", pady=8)
@@ -269,14 +255,12 @@ def setup_gui(callbacks):
     # ==================== RUN ROW ====================
     run_frame = tk.Frame(content, bg=BG)
     run_frame.grid(row=6, column=0, columnspan=3, pady=14)
-    
-    btn_run = ttk.Button(run_frame, text="▶  Run", style="Blue.TButton", 
+
+    btn_run = ttk.Button(run_frame, text="▶  Run", style="Blue.TButton",
                          command=callbacks["run"], width=20)
     btn_run.pack(side=tk.LEFT, padx=(0, 8))
 
-    # === SỬA Ở ĐÂY: GÁN VÀO BIẾN GLOBAL ===
-    global var_output_base, dd_output
-    var_output_base = tk.StringVar(value="Base Dir 1")
+    var_output_base = tk.StringVar()
     dd_output = ttk.Combobox(run_frame, textvariable=var_output_base,
                              state="readonly", font=("Segoe UI", 9), width=16)
     dd_output.pack(side=tk.LEFT, padx=(0, 8))
@@ -292,7 +276,7 @@ def setup_gui(callbacks):
     # ==================== EXTRACT SECTION ====================
     tk.Label(content, text="Extract files:", bg=BG, fg=TEXT,
              font=("Segoe UI", 9, "bold")).grid(row=8, column=0, padx=(0, 6), pady=5, sticky="nw")
-    
+
     txt_extract = tk.Text(content, height=4, bg=PANEL, fg=TEXT,
                           relief="solid", bd=1, font=("Segoe UI", 9),
                           insertbackground=TEXT, padx=6, pady=5)
@@ -300,14 +284,12 @@ def setup_gui(callbacks):
 
     extract_frame = tk.Frame(content, bg=BG)
     extract_frame.grid(row=9, column=0, columnspan=3, pady=10)
-    
-    btn_extract = ttk.Button(extract_frame, text="⬇  Extract", style="Blue.TButton", 
+
+    btn_extract = ttk.Button(extract_frame, text="⬇  Extract", style="Blue.TButton",
                              command=callbacks["extract"], width=20)
     btn_extract.pack(side=tk.LEFT, padx=(0, 8))
 
-    # === SỬA Ở ĐÂY: GÁN VÀO BIẾN GLOBAL ===
-    global var_extract_base, dd_extract
-    var_extract_base = tk.StringVar(value="Base Dir 1")
+    var_extract_base = tk.StringVar()
     dd_extract = ttk.Combobox(extract_frame, textvariable=var_extract_base,
                               state="readonly", font=("Segoe UI", 9), width=16)
     dd_extract.pack(side=tk.LEFT, padx=(0, 8))
@@ -323,8 +305,15 @@ def setup_gui(callbacks):
                       insertbackground=TEXT, padx=8, pady=6)
     txt_log.grid(row=11, column=0, columnspan=3, pady=(2, 16), sticky="nsew")
 
+    # Load base dirs SAU KHI dd_output và dd_extract đã được tạo
+    saved_bases = config.CONFIG.get("base_dirs") or [config.CONFIG.get("base_dir", "")]
+    for val in saved_bases:
+        add_base_row(val)
+    if not base_rows:
+        add_base_row()
+
     refresh_dropdowns()
-    
+
     return root, {
         "txt_log": txt_log,
         "txt_extract": txt_extract,
