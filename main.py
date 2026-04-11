@@ -37,16 +37,24 @@ def log(msg):
 def _parse_profiles(base_dir, filenames):
     """
     Parse tdl profile cho từng file trong danh sách.
-    filename format: "project_0031.txt" → "0031.tdlTruss"
+    filename format: "project_0031.txt" → "0031.tdlTruss" (hoặc .TDLtRUSS, v.v.)
     Trả về dict {filename: profile_dict}
     """
     profiles = {}
     trusses_dir = os.path.join(base_dir, "Trusses")
+
+    # Build map stem -> actual path, case-insensitive
+    stem_to_path = {}
+    if os.path.isdir(trusses_dir):
+        for f in os.listdir(trusses_dir):
+            if f.lower().endswith(".tdltruss"):
+                stem = os.path.splitext(f)[0].lower()
+                stem_to_path[stem] = os.path.join(trusses_dir, f)
+
     for filename in filenames:
-        # project_0031.txt → 0031.tdlTruss
-        stem = filename.replace("project_", "").replace(".txt", "")
-        tdl_path = os.path.join(trusses_dir, f"{stem}.tdlTruss")
-        if os.path.exists(tdl_path):
+        stem = filename.replace("project_", "").replace(".txt", "").lower()
+        tdl_path = stem_to_path.get(stem)
+        if tdl_path:
             profile = parse_tdl(tdl_path)
             if profile:
                 profiles[filename] = profile
@@ -60,7 +68,7 @@ def run():
     var_patch = gui_refs.get("var_patch")
     btn_run = gui_refs.get("btn_run")
     base_rows = gui_refs.get("base_rows", [])
-    
+
     studio_v1 = entry_v1.get().strip()
     studio_v2 = entry_v2.get().strip()
     base_dirs = [row["entry"].get().strip() for row in base_rows if row["entry"].get().strip()]
@@ -112,7 +120,10 @@ def run():
                     log(f"[Base Dir {idx}] Launching TrussStudio {ver_v1} & {ver_v2}...")
                     run_studios_parallel(studio_v1, xml_v1, studio_v2, xml_v2)
 
-                    expected = len(list(__import__('pathlib').Path(os.path.join(bd, "Trusses")).glob("*.tdlTruss")))
+                    expected = sum(
+                        1 for f in os.listdir(os.path.join(bd, "Trusses"))
+                        if f.lower().endswith(".tdltruss")
+                    )
                     done_v1 = done_v2 = 0
                     last_log = time.time()
                     last_change_time = time.time()
@@ -169,12 +180,12 @@ def run():
                     return bd, [], {}
 
             # Sort base dirs: nặng nhất chạy trước
-            from pathlib import Path as _Path
             def count_trusses(bd):
                 trusses_dir = os.path.join(bd, "Trusses")
                 if not os.path.isdir(trusses_dir):
                     return 0
-                return len(list(_Path(trusses_dir).glob("*.tdlTruss")))
+                return sum(1 for f in os.listdir(trusses_dir)
+                           if f.lower().endswith(".tdltruss"))
 
             truss_counts = {bd: count_trusses(bd) for bd in base_dirs}
             sorted_base_dirs = sorted(base_dirs, key=lambda bd: truss_counts[bd], reverse=True)
@@ -225,7 +236,7 @@ def extract():
     var_extract_base = gui_refs.get("var_extract_base")
     txt_extract = gui_refs.get("txt_extract")
     base_rows = gui_refs.get("base_rows", [])
-    
+
     all_base_dirs = [row["entry"].get().strip() for row in base_rows if row["entry"].get().strip()]
     selected_label = var_extract_base.get() if var_extract_base else ""
     try:
