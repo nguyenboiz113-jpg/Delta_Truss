@@ -74,8 +74,7 @@ def refresh_dropdowns():
     if dd_output is None or dd_extract is None:
         return
 
-    dirs = get_base_dirs()
-    n = len(dirs)
+    n = len(base_rows)
     labels = [f"Base Dir {i+1}" for i in range(n)] if n > 0 else ["-"]
 
     for var, dd in [(var_output_base, dd_output), (var_extract_base, dd_extract)]:
