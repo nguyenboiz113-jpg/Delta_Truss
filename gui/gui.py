@@ -78,7 +78,9 @@ def refresh_dropdowns():
     labels = [f"Base Dir {i+1}" for i in range(n)] if n > 0 else ["-"]
 
     for var, dd in [(var_output_base, dd_output), (var_extract_base, dd_extract)]:
-        dd.config(values=labels)
+        # Chỉ update nếu values thực sự thay đổi, tránh redraw thừa
+        if list(dd["values"]) != labels:
+            dd.config(values=labels)
         if var.get() not in labels:
             var.set(labels[0])
 
@@ -110,19 +112,15 @@ def add_base_row(value=""):
                             command=remove_row)
     btn_remove.pack(side=tk.LEFT)
 
-    def _bind_mw(widget):
-        try:
-            widget.bind("<MouseWheel>", _on_mousewheel)
-        except Exception:
-            pass
-        for child in widget.winfo_children():
-            _bind_mw(child)
-
-    _bind_mw(row_frame)
+    # Chỉ bind trực tiếp lên các widget cần thiết, không đệ quy
+    for w in (row_frame, entry, lbl):
+        w.bind("<MouseWheel>", _on_mousewheel)
 
     row_data = {"entry": entry, "frame": row_frame, "label": lbl}
     base_rows.append(row_data)
-    refresh_dropdowns()
+
+    # Defer refresh đến sau khi layout xong, tránh layout thrashing
+    row_frame.after_idle(refresh_dropdowns)
 
 
 def on_add_base():
