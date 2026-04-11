@@ -16,6 +16,10 @@ def extract_files(base_dir, studio_v1, studio_v2, filenames_raw, patched_v1=Fals
     extract_v2  = os.path.join(extract_dir, ver_v2_dir)
     extract_truss = os.path.join(extract_dir, "Trusses")
 
+    # Xóa sạch diff_files trước khi extract để đảm bảo ghi đè
+    if os.path.exists(extract_dir):
+        shutil.rmtree(extract_dir)
+
     os.makedirs(extract_v1, exist_ok=True)
     os.makedirs(extract_v2, exist_ok=True)
     os.makedirs(extract_truss, exist_ok=True)
