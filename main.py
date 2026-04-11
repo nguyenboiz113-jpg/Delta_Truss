@@ -34,10 +34,21 @@ def log(msg):
             gui_root.update()
 
 
+def _strip_extensions(name):
+    """Bỏ tất cả extension cho đến khi không còn nữa.
+    VD: '0039.TDLtRUSS' → '0039', '0037' → '0037'
+    """
+    while True:
+        base, ext = os.path.splitext(name)
+        if not ext:
+            return name
+        name = base
+
+
 def _parse_profiles(base_dir, filenames):
     """
     Parse tdl profile cho từng file trong danh sách.
-    filename format: "project_0031.txt" → "0031.tdlTruss" (hoặc .TDLtRUSS, v.v.)
+    filename format: "project_0031.txt" hoặc "project_0039.TDLtRUSS.txt"
     Trả về dict {filename: profile_dict}
     """
     profiles = {}
@@ -48,11 +59,13 @@ def _parse_profiles(base_dir, filenames):
     if os.path.isdir(trusses_dir):
         for f in os.listdir(trusses_dir):
             if f.lower().endswith(".tdltruss"):
-                stem = os.path.splitext(f)[0].lower()
+                stem = _strip_extensions(f).lower()
                 stem_to_path[stem] = os.path.join(trusses_dir, f)
 
     for filename in filenames:
-        stem = filename.replace("project_", "").replace(".txt", "").lower()
+        # "project_0039.TDLtRUSS.txt" → "0039.TDLtRUSS" → "0039"
+        name = filename.replace("project_", "")
+        stem = _strip_extensions(name).lower()
         tdl_path = stem_to_path.get(stem)
         if tdl_path:
             profile = parse_tdl(tdl_path)
@@ -165,7 +178,7 @@ def run():
                     filenames = [f for f, _ in all_results]
                     profiles = _parse_profiles(bd, filenames)
 
-                    log(f"[Base Dir {idx}] ✅ Done: {len(all_results)} file(s)")
+                    log(f"[Base Dir {idx}] ✅ Done: {len(all_results)} file(s), parsed {len(profiles)} profile(s)")
                     return bd, all_results, profiles
 
                 except Exception as e:
