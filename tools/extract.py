@@ -24,6 +24,13 @@ def extract_files(base_dir, studio_v1, studio_v2, filenames_raw, patched_v1=Fals
 
     trusses_dir = os.path.join(base_dir, "Trusses")
 
+    # Build map stem -> actual filename, ví dụ "0041" -> "0041.TDLtRUSS"
+    truss_map = {}
+    if os.path.isdir(trusses_dir):
+        for f in os.listdir(trusses_dir):
+            stem = f.split(".")[0]
+            truss_map[stem] = f
+
     results = []
     for filename in filenames:
         src_v1 = os.path.join(output_v1, filename)
@@ -39,10 +46,11 @@ def extract_files(base_dir, studio_v1, studio_v2, filenames_raw, patched_v1=Fals
             shutil.copy2(src_v2, os.path.join(extract_v2, filename))
             ok_v2 = True
 
-        # Copy file .tdlTruss tương ứng
-        truss_name = os.path.splitext(filename)[0].replace("project_", "") + ".tdlTruss"
-        src_truss  = os.path.join(trusses_dir, truss_name)
-        if os.path.exists(src_truss):
+        # Bóc stem: "project_0041.TDLtRUSS.txt" -> "0041"
+        stem = filename.replace("project_", "").split(".")[0]
+        if stem in truss_map:
+            truss_name = truss_map[stem]
+            src_truss = os.path.join(trusses_dir, truss_name)
             shutil.copy2(src_truss, os.path.join(extract_truss, truss_name))
 
         results.append({
