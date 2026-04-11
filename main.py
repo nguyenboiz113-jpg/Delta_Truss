@@ -226,7 +226,15 @@ def extract():
     txt_extract = gui_refs.get("txt_extract")
     base_rows = gui_refs.get("base_rows", [])
     
-    base_dirs = [row["entry"].get().strip() for row in base_rows if row["entry"].get().strip()]
+    all_base_dirs = [row["entry"].get().strip() for row in base_rows if row["entry"].get().strip()]
+    selected_label = var_extract_base.get() if var_extract_base else ""
+    try:
+        sel_idx = int(selected_label.replace("Base Dir ", "")) - 1
+        base_dirs = [all_base_dirs[sel_idx]] if 0 <= sel_idx < len(all_base_dirs) else all_base_dirs
+    except (ValueError, IndexError):
+        sel_idx = 0
+        base_dirs = all_base_dirs
+
     filenames_raw = txt_extract.get("1.0", tk.END).strip()
 
     if not base_dirs:
@@ -240,7 +248,8 @@ def extract():
         try:
             btn_extract.config(state=tk.DISABLED)
             all_extract_dirs = []
-            for idx, bd in enumerate(base_dirs, 1):
+            for i, bd in enumerate(base_dirs):
+                idx = (sel_idx if len(base_dirs) == 1 else i) + 1
                 log(f"[Base Dir {idx}] Extracting from {os.path.basename(bd)}...")
                 try:
                     extract_dir, results = extract_files(bd, entry_v1.get(), entry_v2.get(), filenames_raw,
