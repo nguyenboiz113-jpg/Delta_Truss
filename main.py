@@ -8,7 +8,7 @@ import time
 import config
 from config import load_config, save_config
 from engine.xml_builder import copy_project, build_xml, patch_compatibility_version
-from engine.runner import run_studios_parallel, cleanup
+from engine.runner import run_studios_parallel, cleanup, kill_all
 from comparator.compare_file import compare_file
 from report.excel_writer import write_report
 from tools.extract import extract_files
@@ -23,9 +23,28 @@ load_config()
 gui_root = None
 gui_refs = {}
 
+# Stop flag
+_stop_event = threading.Event()
+
+# Track copy dirs để cleanup khi stop
+_active_copy_dirs: list[tuple] = []
+_active_copy_dirs_lock = threading.Lock()
+
+
+def _register_copy(copy_v1, copy_v2):
+    with _active_copy_dirs_lock:
+        _active_copy_dirs.append((copy_v1, copy_v2))
+
+
+def _unregister_copy(copy_v1, copy_v2):
+    with _active_copy_dirs_lock:
+        try:
+            _active_copy_dirs.remove((copy_v1, copy_v2))
+        except ValueError:
+            pass
+
 
 def log(msg):
-    """Log message to GUI, updating root window"""
     txt_log = gui_refs.get("txt_log")
     if txt_log:
         txt_log.insert(tk.END, msg + "\n")
@@ -35,9 +54,6 @@ def log(msg):
 
 
 def _strip_extensions(name):
-    """Bỏ tất cả extension cho đến khi không còn nữa.
-    VD: '0039.TDLtRUSS' → '0039', '0037' → '0037'
-    """
     while True:
         base, ext = os.path.splitext(name)
         if not ext:
@@ -46,15 +62,9 @@ def _strip_extensions(name):
 
 
 def _parse_profiles(base_dir, filenames):
-    """
-    Parse tdl profile cho từng file trong danh sách.
-    filename format: "project_0031.txt" hoặc "project_0039.TDLtRUSS.txt"
-    Trả về dict {filename: profile_dict}
-    """
     profiles = {}
     trusses_dir = os.path.join(base_dir, "Trusses")
 
-    # Build map stem -> actual path, case-insensitive
     stem_to_path = {}
     if os.path.isdir(trusses_dir):
         for f in os.listdir(trusses_dir):
@@ -63,7 +73,6 @@ def _parse_profiles(base_dir, filenames):
                 stem_to_path[stem] = os.path.join(trusses_dir, f)
 
     for filename in filenames:
-        # "project_0039.TDLtRUSS.txt" → "0039.TDLtRUSS" → "0039"
         name = filename.replace("project_", "")
         stem = _strip_extensions(name).lower()
         tdl_path = stem_to_path.get(stem)
@@ -74,13 +83,40 @@ def _parse_profiles(base_dir, filenames):
     return profiles
 
 
+def stop():
+    """Kill tất cả TrussStudio + dọn dẹp copy dirs"""
+    _stop_event.set()
+    log("⛔ Stopping...")
+
+    # Kill tất cả process
+    kill_all()
+
+    # Cleanup tất cả copy dirs
+    with _active_copy_dirs_lock:
+        for copy_v1, copy_v2 in _active_copy_dirs:
+            for path in [copy_v1, copy_v2]:
+                if path and os.path.exists(path):
+                    shutil.rmtree(path, ignore_errors=True)
+        _active_copy_dirs.clear()
+
+    log("⛔ Stopped. Cleaned up.")
+
+    btn_stop = gui_refs.get("btn_stop")
+    btn_run  = gui_refs.get("btn_run")
+    if btn_stop:
+        btn_stop.config(state=tk.DISABLED)
+    if btn_run:
+        btn_run.config(state=tk.NORMAL)
+
+
 def run():
-    entry_v1 = gui_refs.get("entry_v1")
-    entry_v2 = gui_refs.get("entry_v2")
+    entry_v1     = gui_refs.get("entry_v1")
+    entry_v2     = gui_refs.get("entry_v2")
     var_patch_v1 = gui_refs.get("var_patch_v1")
-    var_patch = gui_refs.get("var_patch")
-    btn_run = gui_refs.get("btn_run")
-    base_rows = gui_refs.get("base_rows", [])
+    var_patch    = gui_refs.get("var_patch")
+    btn_run      = gui_refs.get("btn_run")
+    btn_stop     = gui_refs.get("btn_stop")
+    base_rows    = gui_refs.get("base_rows", [])
 
     studio_v1 = entry_v1.get().strip()
     studio_v2 = entry_v2.get().strip()
@@ -92,9 +128,13 @@ def run():
 
     config.CONFIG["studio_dir_v1"] = studio_v1
     config.CONFIG["studio_dir_v2"] = studio_v2
-    config.CONFIG["base_dirs"] = base_dirs
+    config.CONFIG["base_dirs"]     = base_dirs
     save_config()
+
+    _stop_event.clear()
     btn_run.config(state=tk.DISABLED)
+    if btn_stop:
+        btn_stop.config(state=tk.NORMAL)
 
     def _run():
         try:
@@ -108,6 +148,9 @@ def run():
             def run_one(bd, idx):
                 copy_v1 = copy_v2 = None
                 try:
+                    if _stop_event.is_set():
+                        return bd, [], {}
+
                     output_dir = os.path.join(bd, "output")
                     if os.path.exists(output_dir):
                         shutil.rmtree(output_dir)
@@ -118,6 +161,10 @@ def run():
 
                     log(f"[Base Dir {idx}] Copying project...")
                     copy_v1, copy_v2 = copy_project(bd)
+                    _register_copy(copy_v1, copy_v2)
+
+                    if _stop_event.is_set():
+                        return bd, [], {}
 
                     if var_patch_v1.get():
                         patch_compatibility_version(os.path.join(copy_v1, "Trusses"), get_version_number(ver_v1))
@@ -129,6 +176,9 @@ def run():
                     xml_v2 = os.path.join(bd, "project_v2.xml")
                     build_xml("project", os.path.join(copy_v1, "Trusses"), os.path.join(copy_v1, "Presets"), output_v1, xml_v1)
                     build_xml("project", os.path.join(copy_v2, "Trusses"), os.path.join(copy_v2, "Presets"), output_v2, xml_v2)
+
+                    if _stop_event.is_set():
+                        return bd, [], {}
 
                     log(f"[Base Dir {idx}] Launching TrussStudio {ver_v1} & {ver_v2}...")
                     run_studios_parallel(studio_v1, xml_v1, studio_v2, xml_v2)
@@ -142,6 +192,8 @@ def run():
                     last_change_time = time.time()
                     last_total = -1
                     while done_v1 < expected or done_v2 < expected:
+                        if _stop_event.is_set():
+                            return bd, [], {}
                         done_v1 = len([f for f in os.listdir(output_v1) if f.endswith(".txt")])
                         done_v2 = len([f for f in os.listdir(output_v2) if f.endswith(".txt")])
                         current_total = done_v1 + done_v2
@@ -156,10 +208,15 @@ def run():
                             last_log = time.time()
                         time.sleep(0.5)
 
-                    os.remove(xml_v1)
-                    os.remove(xml_v2)
+                    for xml in [xml_v1, xml_v2]:
+                        if os.path.exists(xml):
+                            os.remove(xml)
                     cleanup(copy_v1, copy_v2)
+                    _unregister_copy(copy_v1, copy_v2)
                     copy_v1 = copy_v2 = None
+
+                    if _stop_event.is_set():
+                        return bd, [], {}
 
                     log(f"[Base Dir {idx}] Comparing...")
                     files = sorted([f for f in os.listdir(output_v1) if f.endswith(".txt")])
@@ -173,7 +230,6 @@ def run():
                         results = compare_file(fv1, fv2)
                         all_results.append((filename, results))
 
-                    # Parse tdl profiles
                     log(f"[Base Dir {idx}] Parsing truss profiles...")
                     filenames = [f for f, _ in all_results]
                     profiles = _parse_profiles(bd, filenames)
@@ -188,11 +244,12 @@ def run():
                             shutil.rmtree(copy_v1)
                         if copy_v2 and os.path.exists(copy_v2):
                             shutil.rmtree(copy_v2)
+                        if copy_v1 and copy_v2:
+                            _unregister_copy(copy_v1, copy_v2)
                     except Exception:
                         pass
                     return bd, [], {}
 
-            # Sort base dirs: nặng nhất chạy trước
             def count_trusses(bd):
                 trusses_dir = os.path.join(bd, "Trusses")
                 if not os.path.isdir(trusses_dir):
@@ -200,7 +257,7 @@ def run():
                 return sum(1 for f in os.listdir(trusses_dir)
                            if f.lower().endswith(".tdltruss"))
 
-            truss_counts = {bd: count_trusses(bd) for bd in base_dirs}
+            truss_counts     = {bd: count_trusses(bd) for bd in base_dirs}
             sorted_base_dirs = sorted(base_dirs, key=lambda bd: truss_counts[bd], reverse=True)
             for bd in sorted_base_dirs:
                 orig_idx = base_dirs.index(bd) + 1
@@ -216,17 +273,19 @@ def run():
                         bd_result, results, profiles = future.result()
                         base_all_results[bd_result] = results
                         base_profiles[bd_result]    = profiles
-                        if not results:
-                            log(f"⚠️ [{os.path.basename(bd_result)}] Failed or no results, sheet will be empty.")
+                        if not results and not _stop_event.is_set():
+                            log(f"⚠️ [{os.path.basename(bd_result)}] Failed or no results.")
                     except Exception as e:
                         log(f"❌ Unexpected error: {e}")
 
-            # Giữ thứ tự Excel theo thứ tự user nhập ban đầu
+            if _stop_event.is_set():
+                return
+
             base_all_results = {bd: base_all_results[bd] for bd in base_dirs if bd in base_all_results}
             base_profiles    = {bd: base_profiles.get(bd, {}) for bd in base_dirs if bd in base_all_results}
 
             parent_dir = os.path.dirname(base_dirs[0])
-            xlsx_path = os.path.join(parent_dir, "compare_results.xlsx")
+            xlsx_path  = os.path.join(parent_dir, "compare_results.xlsx")
             write_report(base_all_results, xlsx_path, base_profiles)
             log(f"\nCompleted! Results saved to: {xlsx_path}")
             messagebox.showinfo("Done", f"Completed!\n{xlsx_path}")
@@ -235,28 +294,30 @@ def run():
             log(f"[ERROR] {e}")
             messagebox.showerror("Error", str(e))
         finally:
+            if btn_stop:
+                btn_stop.config(state=tk.DISABLED)
             btn_run.config(state=tk.NORMAL)
 
     threading.Thread(target=_run, daemon=True).start()
 
 
 def extract():
-    entry_v1 = gui_refs.get("entry_v1")
-    entry_v2 = gui_refs.get("entry_v2")
+    entry_v1     = gui_refs.get("entry_v1")
+    entry_v2     = gui_refs.get("entry_v2")
     var_patch_v1 = gui_refs.get("var_patch_v1")
-    var_patch = gui_refs.get("var_patch")
-    btn_extract = gui_refs.get("btn_extract")
+    var_patch    = gui_refs.get("var_patch")
+    btn_extract  = gui_refs.get("btn_extract")
     var_extract_base = gui_refs.get("var_extract_base")
-    txt_extract = gui_refs.get("txt_extract")
-    base_rows = gui_refs.get("base_rows", [])
+    txt_extract  = gui_refs.get("txt_extract")
+    base_rows    = gui_refs.get("base_rows", [])
 
-    all_base_dirs = [row["entry"].get().strip() for row in base_rows if row["entry"].get().strip()]
+    all_base_dirs  = [row["entry"].get().strip() for row in base_rows if row["entry"].get().strip()]
     selected_label = var_extract_base.get() if var_extract_base else ""
     try:
-        sel_idx = int(selected_label.replace("Base Dir ", "")) - 1
+        sel_idx  = int(selected_label.replace("Base Dir ", "")) - 1
         base_dirs = [all_base_dirs[sel_idx]] if 0 <= sel_idx < len(all_base_dirs) else all_base_dirs
     except (ValueError, IndexError):
-        sel_idx = 0
+        sel_idx   = 0
         base_dirs = all_base_dirs
 
     filenames_raw = txt_extract.get("1.0", tk.END).strip()
@@ -331,10 +392,11 @@ def open_extract_dir():
 # Setup GUI and run
 if __name__ == "__main__":
     callbacks = {
-        "run": run,
-        "extract": extract,
-        "open_excel": open_excel,
-        "open_output": open_output,
+        "run":             run,
+        "stop":            stop,
+        "extract":         extract,
+        "open_excel":      open_excel,
+        "open_output":     open_output,
         "open_extract_dir": open_extract_dir,
     }
     gui_root, gui_refs = setup_gui(callbacks)

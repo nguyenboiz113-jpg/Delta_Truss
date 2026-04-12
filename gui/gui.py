@@ -23,6 +23,7 @@ var_patch = None
 var_output_base = None
 var_extract_base = None
 btn_run = None
+btn_stop = None
 btn_extract = None
 dd_output = None
 dd_extract = None
@@ -78,7 +79,6 @@ def refresh_dropdowns():
     labels = [f"Base Dir {i+1}" for i in range(n)] if n > 0 else ["-"]
 
     for var, dd in [(var_output_base, dd_output), (var_extract_base, dd_extract)]:
-        # Chỉ update nếu values thực sự thay đổi, tránh redraw thừa
         if list(dd["values"]) != labels:
             dd.config(values=labels)
         if var.get() not in labels:
@@ -112,14 +112,11 @@ def add_base_row(value=""):
                             command=remove_row)
     btn_remove.pack(side=tk.LEFT)
 
-    # Chỉ bind trực tiếp lên các widget cần thiết, không đệ quy
     for w in (row_frame, entry, lbl):
         w.bind("<MouseWheel>", _on_mousewheel)
 
     row_data = {"entry": entry, "frame": row_frame, "label": lbl}
     base_rows.append(row_data)
-
-    # Defer refresh đến sau khi layout xong, tránh layout thrashing
     row_frame.after_idle(refresh_dropdowns)
 
 
@@ -160,10 +157,10 @@ def _on_mousewheel(event):
 
 def setup_gui(callbacks):
     global root, txt_log, txt_extract, entry_v1, entry_v2, var_patch_v1, var_patch
-    global var_output_base, var_extract_base, btn_run, btn_extract, dd_output, dd_extract
+    global var_output_base, var_extract_base, btn_run, btn_stop, btn_extract
+    global dd_output, dd_extract
     global bases_canvas, bases_scrollbar, bases_frame, bases_frame_id
 
-    # Reset base_rows mỗi lần setup để tránh data cũ
     base_rows.clear()
 
     root = tk.Tk()
@@ -180,6 +177,11 @@ def setup_gui(callbacks):
     style.map("Blue.TButton",
               background=[("active", ACCENT2), ("disabled", "#a0aec0")],
               foreground=[("active", "white"), ("disabled", "white")])
+    style.configure("Red.TButton", background="#c0392b", foreground="white",
+                    font=("Segoe UI", 10, "bold"), borderwidth=0, relief="flat", padding=(16, 7))
+    style.map("Red.TButton",
+              background=[("active", "#922b21"), ("disabled", "#a0aec0")],
+              foreground=[("active", "white"), ("disabled", "white")])
     style.configure("Green.TButton", background="#217346", foreground="white",
                     font=("Segoe UI", 10, "bold"), borderwidth=0, relief="flat", padding=(16, 7))
     style.map("Green.TButton",
@@ -191,9 +193,7 @@ def setup_gui(callbacks):
                     bordercolor=BORDER, lightcolor=BORDER, darkcolor=BORDER,
                     insertcolor=TEXT, padding=(4, 2))
     style.map("Small.TEntry", bordercolor=[("focus", ACCENT)])
-
-    style.configure("TCheckbutton", background=BG, foreground=TEXT,
-                font=("Segoe UI", 9))
+    style.configure("TCheckbutton", background=BG, foreground=TEXT, font=("Segoe UI", 9))
     style.map("TCheckbutton", background=[("active", BG)])
 
     # Title bar
@@ -261,6 +261,10 @@ def setup_gui(callbacks):
                          command=callbacks["run"], width=20)
     btn_run.pack(side=tk.LEFT, padx=(0, 8))
 
+    btn_stop = ttk.Button(run_frame, text="⏹  Stop", style="Red.TButton",
+                          command=callbacks["stop"], width=14, state=tk.DISABLED)
+    btn_stop.pack(side=tk.LEFT, padx=(0, 8))
+
     var_output_base = tk.StringVar()
     dd_output = ttk.Combobox(run_frame, textvariable=var_output_base,
                              state="readonly", font=("Segoe UI", 9), width=16)
@@ -306,7 +310,7 @@ def setup_gui(callbacks):
                       insertbackground=TEXT, padx=8, pady=6)
     txt_log.grid(row=11, column=0, columnspan=3, pady=(2, 16), sticky="nsew")
 
-    # Load base dirs SAU KHI dd_output và dd_extract đã được tạo
+    # Load base dirs sau khi dd_output và dd_extract đã được tạo
     saved_bases = config.CONFIG.get("base_dirs") or [config.CONFIG.get("base_dir", "")]
     for val in saved_bases:
         add_base_row(val)
@@ -316,17 +320,18 @@ def setup_gui(callbacks):
     refresh_dropdowns()
 
     return root, {
-        "txt_log": txt_log,
-        "txt_extract": txt_extract,
-        "entry_v1": entry_v1,
-        "entry_v2": entry_v2,
-        "var_patch_v1": var_patch_v1,
-        "var_patch": var_patch,
-        "var_output_base": var_output_base,
+        "txt_log":          txt_log,
+        "txt_extract":      txt_extract,
+        "entry_v1":         entry_v1,
+        "entry_v2":         entry_v2,
+        "var_patch_v1":     var_patch_v1,
+        "var_patch":        var_patch,
+        "var_output_base":  var_output_base,
         "var_extract_base": var_extract_base,
-        "btn_run": btn_run,
-        "btn_extract": btn_extract,
-        "dd_output": dd_output,
-        "dd_extract": dd_extract,
-        "base_rows": base_rows,
+        "btn_run":          btn_run,
+        "btn_stop":         btn_stop,
+        "btn_extract":      btn_extract,
+        "dd_output":        dd_output,
+        "dd_extract":       dd_extract,
+        "base_rows":        base_rows,
     }
