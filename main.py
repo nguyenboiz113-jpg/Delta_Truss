@@ -84,20 +84,33 @@ def _parse_profiles(base_dir, filenames):
 
 
 def stop():
-    """Kill tất cả TrussStudio + dọn dẹp copy dirs"""
+    """Kill tất cả TrussStudio + dọn dẹp copy dirs + xml"""
     _stop_event.set()
     log("⛔ Stopping...")
 
     # Kill tất cả process
     kill_all()
 
-    # Cleanup tất cả copy dirs
+    # Cleanup copy dirs
     with _active_copy_dirs_lock:
         for copy_v1, copy_v2 in _active_copy_dirs:
             for path in [copy_v1, copy_v2]:
                 if path and os.path.exists(path):
                     shutil.rmtree(path, ignore_errors=True)
         _active_copy_dirs.clear()
+
+    # Xóa xml còn sót trong từng base dir
+    base_rows = gui_refs.get("base_rows", [])
+    for row in base_rows:
+        bd = row["entry"].get().strip()
+        if bd:
+            for xml in ["project_v1.xml", "project_v2.xml"]:
+                p = os.path.join(bd, xml)
+                if os.path.exists(p):
+                    try:
+                        os.remove(p)
+                    except Exception:
+                        pass
 
     log("⛔ Stopped. Cleaned up.")
 
@@ -147,6 +160,8 @@ def run():
 
             def run_one(bd, idx):
                 copy_v1 = copy_v2 = None
+                xml_v1  = os.path.join(bd, "project_v1.xml")
+                xml_v2  = os.path.join(bd, "project_v2.xml")
                 try:
                     if _stop_event.is_set():
                         return bd, [], {}
@@ -172,8 +187,6 @@ def run():
                         patch_compatibility_version(os.path.join(copy_v2, "Trusses"), get_version_number(ver_v2))
 
                     log(f"[Base Dir {idx}] Building XML...")
-                    xml_v1 = os.path.join(bd, "project_v1.xml")
-                    xml_v2 = os.path.join(bd, "project_v2.xml")
                     build_xml("project", os.path.join(copy_v1, "Trusses"), os.path.join(copy_v1, "Presets"), output_v1, xml_v1)
                     build_xml("project", os.path.join(copy_v2, "Trusses"), os.path.join(copy_v2, "Presets"), output_v2, xml_v2)
 
@@ -246,6 +259,9 @@ def run():
                             shutil.rmtree(copy_v2)
                         if copy_v1 and copy_v2:
                             _unregister_copy(copy_v1, copy_v2)
+                        for xml in [xml_v1, xml_v2]:
+                            if os.path.exists(xml):
+                                os.remove(xml)
                     except Exception:
                         pass
                     return bd, [], {}
@@ -314,7 +330,7 @@ def extract():
     all_base_dirs  = [row["entry"].get().strip() for row in base_rows if row["entry"].get().strip()]
     selected_label = var_extract_base.get() if var_extract_base else ""
     try:
-        sel_idx  = int(selected_label.replace("Base Dir ", "")) - 1
+        sel_idx   = int(selected_label.replace("Base Dir ", "")) - 1
         base_dirs = [all_base_dirs[sel_idx]] if 0 <= sel_idx < len(all_base_dirs) else all_base_dirs
     except (ValueError, IndexError):
         sel_idx   = 0
@@ -392,11 +408,11 @@ def open_extract_dir():
 # Setup GUI and run
 if __name__ == "__main__":
     callbacks = {
-        "run":             run,
-        "stop":            stop,
-        "extract":         extract,
-        "open_excel":      open_excel,
-        "open_output":     open_output,
+        "run":              run,
+        "stop":             stop,
+        "extract":          extract,
+        "open_excel":       open_excel,
+        "open_output":      open_output,
         "open_extract_dir": open_extract_dir,
     }
     gui_root, gui_refs = setup_gui(callbacks)
