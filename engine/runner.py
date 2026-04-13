@@ -22,7 +22,7 @@ def cleanup(copy_v1, copy_v2):
 
 
 def kill_all():
-    """Kill tất cả TrussStudio process đang chạy"""
+    """Kill tất cả TrussStudio process đang chạy — dùng khi user bấm Stop"""
     with _active_processes_lock:
         for p in _active_processes:
             try:
@@ -30,6 +30,17 @@ def kill_all():
             except Exception:
                 pass
         _active_processes.clear()
+
+
+def kill_studios(p1, p2):
+    """Kill riêng 2 process cụ thể — dùng khi retry từng base dir"""
+    for p in (p1, p2):
+        if p is not None:
+            try:
+                p.kill()
+            except Exception:
+                pass
+            _untrack(p)
 
 
 def _launch_studio(studio_dir, xml_path):
