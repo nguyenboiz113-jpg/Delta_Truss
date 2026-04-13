@@ -198,7 +198,6 @@ def run():
                         f for f in os.listdir(os.path.join(bd, "Trusses"))
                         if f.lower().endswith(".tdltruss")
                     )
-                    all_txt_names = [_txt_name(f) for f in all_truss_files]
 
                     log(f"[Base Dir {idx}] Found {len(all_truss_files)} truss file(s).")
                     if not all_truss_files:
@@ -217,8 +216,8 @@ def run():
                         if _stop_event.is_set():
                             return bd, [], {}
 
-                        is_retry = any(file_retry_count.get(f, 0) > 0 for f in current_files)
-                        retry_label = f"  [retry batch]" if is_retry else ""
+                        is_retry    = any(file_retry_count.get(f, 0) > 0 for f in current_files)
+                        retry_label = "  [retry batch]" if is_retry else ""
 
                         # expected = số file đã done ngoài batch này + số file trong batch này
                         current_txt_set = {_txt_name(f) for f in current_files}
@@ -272,11 +271,10 @@ def run():
 
                         next_batch = []
                         for f in current_files:
-                            stem    = _strip_extensions(f)
-                            txt     = _txt_name(f)
+                            stem = _strip_extensions(f)
+                            txt  = _txt_name(f)
                             if stem in done_stems_v1 and stem in done_stems_v2:
-                                # Done OK
-                                continue
+                                continue  # Done OK
                             # File này bị missing
                             retries = file_retry_count.get(f, 0)
                             if retries >= MAX_RETRY_PER_FILE:
@@ -302,17 +300,28 @@ def run():
                     if _stop_event.is_set():
                         return bd, [], {}
 
-                    # Compare
+                    # ✅ Compare — list từ output thực tế như commit cũ, tránh mismatch tên file
                     log(f"[Base Dir {idx}] Comparing...")
-                    all_results = []
-                    for txt_name in all_txt_names:
+                    actual_files = sorted(f for f in os.listdir(output_v1) if f.endswith(".txt"))
+                    seen_txt     = set()
+                    all_results  = []
+
+                    for txt_name in actual_files:
+                        seen_txt.add(txt_name)
                         fv1 = os.path.join(output_v1, txt_name)
                         fv2 = os.path.join(output_v2, txt_name)
                         if txt_name in not_responded:
                             all_results.append((txt_name, [{"section": "Not Responded", "diff_count": -1, "diff_pct": -1, "lines_v1": 0, "lines_v2": 0}]))
-                        elif os.path.exists(fv1) and os.path.exists(fv2):
+                        elif os.path.exists(fv2):
                             results = compare_file(fv1, fv2)
                             all_results.append((txt_name, results))
+                        else:
+                            log(f"[Base Dir {idx}] [SKIP] {txt_name} — missing in v2 output")
+
+                    # Append các file not_responded không có trong output thực tế
+                    for txt_name in not_responded:
+                        if txt_name not in seen_txt:
+                            all_results.append((txt_name, [{"section": "Not Responded", "diff_count": -1, "diff_pct": -1, "lines_v1": 0, "lines_v2": 0}]))
 
                     log(f"[Base Dir {idx}] Parsing truss profiles...")
                     filenames = [f for f, _ in all_results]
