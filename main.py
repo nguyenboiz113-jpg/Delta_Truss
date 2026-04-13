@@ -234,8 +234,9 @@ def run():
                             if _stop_event.is_set():
                                 return bd, [], {}, set()
 
-                            done_v1 = len([f for f in os.listdir(output_v1) if f.endswith(".txt")])
-                            done_v2 = len([f for f in os.listdir(output_v2) if f.endswith(".txt")])
+                            current_txt_names = {_txt_name(f) for f in current_files}
+                            done_v1 = len([f for f in os.listdir(output_v1) if f in current_txt_names])
+                            done_v2 = len([f for f in os.listdir(output_v2) if f in current_txt_names])
                             current_total = done_v1 + done_v2
 
                             if current_total != last_total:
@@ -311,6 +312,7 @@ def run():
                             break
 
                         current_files = retry_files
+                        expected      = len(retry_files)
                         retry_count  += 1
                         log(f"[Base Dir {idx}] Retrying {len(retry_files)} file(s) (attempt {retry_count}/{MAX_RETRY})...")
 
