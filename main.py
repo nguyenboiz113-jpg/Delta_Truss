@@ -186,44 +186,123 @@ def run():
                     if var_patch.get():
                         patch_compatibility_version(os.path.join(copy_v2, "Trusses"), get_version_number(ver_v2))
 
-                    log(f"[Base Dir {idx}] Building XML...")
-                    build_xml("project", os.path.join(copy_v1, "Trusses"), os.path.join(copy_v1, "Presets"), output_v1, xml_v1)
-                    build_xml("project", os.path.join(copy_v2, "Trusses"), os.path.join(copy_v2, "Presets"), output_v2, xml_v2)
-
-                    if _stop_event.is_set():
-                        return bd, [], {}
-
-                    log(f"[Base Dir {idx}] Launching TrussStudio {ver_v1} & {ver_v2}...")
-                    run_studios_parallel(studio_v1, xml_v1, studio_v2, xml_v2)
-
-                    expected = sum(
-                        1 for f in os.listdir(os.path.join(bd, "Trusses"))
+                    trusses_dir_v1 = os.path.join(copy_v1, "Trusses")
+                    trusses_dir_v2 = os.path.join(copy_v2, "Trusses")
+                    all_truss_files = sorted(
+                        f for f in os.listdir(trusses_dir_v1)
                         if f.lower().endswith(".tdltruss")
                     )
-                    done_v1 = done_v2 = 0
-                    last_log = time.time()
-                    last_change_time = time.time()
-                    last_total = -1
-                    while done_v1 < expected or done_v2 < expected:
+                    all_txt_names = [f"project_{f}.txt" for f in all_truss_files]
+
+                    current_files = list(all_truss_files)
+                    not_responded = set()
+                    retry_count   = 0
+                    MAX_RETRY     = 3
+
+                    while True:
                         if _stop_event.is_set():
                             return bd, [], {}
-                        done_v1 = len([f for f in os.listdir(output_v1) if f.endswith(".txt")])
-                        done_v2 = len([f for f in os.listdir(output_v2) if f.endswith(".txt")])
-                        current_total = done_v1 + done_v2
-                        if current_total != last_total:
-                            last_total = current_total
-                            last_change_time = time.time()
-                        if time.time() - last_change_time >= 60:
-                            log(f"[Base Dir {idx}] ⚠️ No new files for 60s, assuming TrussStudio finished (v1={done_v1}/{expected}, v2={done_v2}/{expected})")
-                            break
-                        if time.time() - last_log >= 30:
-                            log(f"[Base Dir {idx}] Waiting... v1={done_v1}/{expected}, v2={done_v2}/{expected}")
-                            last_log = time.time()
-                        time.sleep(0.5)
 
-                    for xml in [xml_v1, xml_v2]:
-                        if os.path.exists(xml):
-                            os.remove(xml)
+                        only_files = current_files if retry_count > 0 else None
+                        log(f"[Base Dir {idx}] Building XML ({len(current_files)} file(s))...")
+                        build_xml("project", trusses_dir_v1, os.path.join(copy_v1, "Presets"), output_v1, xml_v1, only_files=only_files)
+                        build_xml("project", trusses_dir_v2, os.path.join(copy_v2, "Presets"), output_v2, xml_v2, only_files=only_files)
+
+                        retry_label = f"  [retry {retry_count}]" if retry_count > 0 else ""
+                        log(f"[Base Dir {idx}] Launching TrussStudio {ver_v1} & {ver_v2}{retry_label}...")
+                        run_studios_parallel(studio_v1, xml_v1, studio_v2, xml_v2)
+
+                        for xml in [xml_v1, xml_v2]:
+                            if os.path.exists(xml):
+                                os.remove(xml)
+
+                        if _stop_event.is_set():
+                            return bd, [], {}
+
+                        # Polling chờ output
+                        expected         = len([f for f in os.listdir(output_v1) if f.endswith(".txt")]) + len(current_files)
+                        last_log         = time.time()
+                        last_change_time = time.time()
+                        last_total       = -1
+                        while True:
+                            if _stop_event.is_set():
+                                return bd, [], {}
+                            done_v1 = len([f for f in os.listdir(output_v1) if f.endswith(".txt")])
+                            done_v2 = len([f for f in os.listdir(output_v2) if f.endswith(".txt")])
+                            current_total = done_v1 + done_v2
+                            if current_total != last_total:
+                                last_total       = current_total
+                                last_change_time = time.time()
+                            if time.time() - last_change_time >= 60:
+                                log(f"[Base Dir {idx}] ⚠️ No progress for 60s (v1={done_v1}/{expected}, v2={done_v2}/{expected})")
+                                break
+                            if time.time() - last_log >= 30:
+                                log(f"[Base Dir {idx}] Waiting... v1={done_v1}/{expected}, v2={done_v2}/{expected}")
+                                last_log = time.time()
+                            if done_v1 >= expected and done_v2 >= expected:
+                                break
+                            time.sleep(0.5)
+
+                        if _stop_event.is_set():
+                            return bd, [], {}
+
+                        # Check missing
+                        done_stems_v1 = {os.path.splitext(f)[0] for f in os.listdir(output_v1) if f.endswith(".txt")}
+                        done_stems_v2 = {os.path.splitext(f)[0] for f in os.listdir(output_v2) if f.endswith(".txt")}
+
+                        def _stem(name):
+                            n = name
+                            while True:
+                                base, ext = os.path.splitext(n)
+                                if not ext:
+                                    return n
+                                n = base
+
+                        all_stems = {_stem(f) for f in all_truss_files}
+                        missing   = (all_stems - done_stems_v1) | (all_stems - done_stems_v2)
+
+                        if not missing:
+                            log(f"[Base Dir {idx}] ✅ All {len(all_truss_files)} file(s) done.")
+                            break
+
+                        # Tìm file stuck đầu tiên trong current_files
+                        current_stems = [_stem(f) for f in current_files]
+                        stuck_stem    = next((s for s in current_stems if s in missing), None)
+                        if stuck_stem is None:
+                            break
+
+                        stuck_filename = next(f for f in all_truss_files if _stem(f) == stuck_stem)
+                        log(f"[Base Dir {idx}] ⚠️ Not responded: {stuck_filename}")
+
+                        if retry_count >= MAX_RETRY:
+                            # Thêm tất cả missing vào not_responded
+                            for stem in missing:
+                                fn = next((f for f in all_truss_files if _stem(f) == stem), None)
+                                if fn:
+                                    not_responded.add(f"project_{fn}.txt")
+                            log(f"[Base Dir {idx}] ❌ Max retries reached. {len(not_responded)} file(s) not responded.")
+                            break
+
+                        # Thêm stuck vào not_responded nếu đã retry rồi vẫn không ra
+                        if retry_count > 0 and f"project_{stuck_filename}.txt" in not_responded:
+                            # Stuck này đã được retry rồi vẫn hư → skip, retry từ file tiếp theo
+                            retry_files = [
+                                f for f in all_truss_files
+                                if _stem(f) in missing and f != stuck_filename
+                            ]
+                        else:
+                            # Cho stuck cơ hội chạy lại, retry từ stuck trở đi
+                            not_responded.add(f"project_{stuck_filename}.txt")
+                            stuck_idx   = all_truss_files.index(stuck_filename)
+                            retry_files = all_truss_files[stuck_idx:]
+
+                        if not retry_files:
+                            log(f"[Base Dir {idx}] No more files to retry.")
+                            break
+
+                        current_files = retry_files
+                        retry_count  += 1
+                        log(f"[Base Dir {idx}] Retrying {len(retry_files)} file(s) (attempt {retry_count}/{MAX_RETRY})...")
                     cleanup(copy_v1, copy_v2)
                     _unregister_copy(copy_v1, copy_v2)
                     copy_v1 = copy_v2 = None
@@ -232,16 +311,15 @@ def run():
                         return bd, [], {}
 
                     log(f"[Base Dir {idx}] Comparing...")
-                    files = sorted([f for f in os.listdir(output_v1) if f.endswith(".txt")])
                     all_results = []
-                    for filename in files:
-                        fv1 = os.path.join(output_v1, filename)
-                        fv2 = os.path.join(output_v2, filename)
-                        if not os.path.exists(fv2):
-                            log(f"[Base Dir {idx}] [SKIP] {filename}")
-                            continue
-                        results = compare_file(fv1, fv2)
-                        all_results.append((filename, results))
+                    for txt_name in all_txt_names:
+                        fv1 = os.path.join(output_v1, txt_name)
+                        fv2 = os.path.join(output_v2, txt_name)
+                        if txt_name in not_responded:
+                            all_results.append((txt_name, [{"section": "Not Responded", "diff_count": -1, "diff_pct": -1, "lines_v1": 0, "lines_v2": 0}]))
+                        elif os.path.exists(fv1) and os.path.exists(fv2):
+                            results = compare_file(fv1, fv2)
+                            all_results.append((txt_name, results))
 
                     log(f"[Base Dir {idx}] Parsing truss profiles...")
                     filenames = [f for f, _ in all_results]

@@ -60,8 +60,11 @@ def patch_compatibility_version(trusses_dir, target_version):
     print(f"✓ Đã patch {len(truss_files)} file → CompatibilityVersion = {target_version}")
 
 
-def build_xml(project_name, trusses_dir, presets_dir, output_dir, xml_path):
-    truss_files = sorted(Path(trusses_dir).glob("*.tdlTruss"))
+def build_xml(project_name, trusses_dir, presets_dir, output_dir, xml_path, only_files=None):
+    if only_files is not None:
+        truss_files = sorted([Path(trusses_dir) / f for f in only_files])
+    else:
+        truss_files = sorted(Path(trusses_dir).glob("*.tdlTruss"))
 
     trusses_xml = ""
     for f in truss_files:
