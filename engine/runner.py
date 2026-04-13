@@ -60,11 +60,14 @@ def _untrack(p):
             pass
 
 
-def run_studios_parallel(studio_v1, xml_v1, studio_v2, xml_v2):
-    """Launch v1 trước, đợi STUDIO_LAUNCH_DELAY, rồi launch v2, sau đó chờ cả 2 xong"""
+def launch_studios(studio_v1, xml_v1, studio_v2, xml_v2):
+    """Launch cả 2 studio, trả về (p1, p2) để caller tự poll và quản lý"""
     p1 = _launch_studio(studio_v1, xml_v1)
     p2 = _launch_studio(studio_v2, xml_v2)
-    p1.wait()
-    p2.wait()
+    return p1, p2
+
+
+def finish_studios(p1, p2):
+    """Untrack process sau khi caller xác nhận xong"""
     _untrack(p1)
     _untrack(p2)

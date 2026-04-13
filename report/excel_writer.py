@@ -9,12 +9,13 @@ from openpyxl.drawing.spreadsheet_drawing import AbsoluteAnchor
 from openpyxl.drawing.xdr import XDRPoint2D, XDRPositiveSize2D
 from openpyxl.utils.units import cm_to_EMU
 
-GREEN_LIGHT = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
-RED_LIGHT   = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
-YELLOW      = PatternFill(start_color="FFEB9C", end_color="FFEB9C", fill_type="solid")
-BLUE_LIGHT  = PatternFill(start_color="DDEEFF", end_color="DDEEFF", fill_type="solid")
-GRAY_LIGHT  = PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type="solid")
-BOLD        = Font(bold=True)
+GREEN_LIGHT  = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
+RED_LIGHT    = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
+ORANGE_LIGHT = PatternFill(start_color="FFD966", end_color="FFD966", fill_type="solid")
+YELLOW       = PatternFill(start_color="FFEB9C", end_color="FFEB9C", fill_type="solid")
+BLUE_LIGHT   = PatternFill(start_color="DDEEFF", end_color="DDEEFF", fill_type="solid")
+GRAY_LIGHT   = PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type="solid")
+BOLD         = Font(bold=True)
 
 PROFILE_COLS = [
     ("Truss Label",   "truss_label"),
@@ -27,9 +28,9 @@ PROFILE_COLS = [
 ]
 N_PROFILE = len(PROFILE_COLS)  # 7
 
-PIE_COLS      = 8
-PIE_CHART_W   = 5 * 0.95  # cm
-PIE_CHART_H   = 5 * 0.95  # cm
+PIE_COLS    = 8
+PIE_CHART_W = 5 * 0.95  # cm
+PIE_CHART_H = 5 * 0.95  # cm
 
 
 def _profile_fill(key, value):
@@ -43,23 +44,27 @@ def _profile_fill(key, value):
 def _write_summary_sheet(ws_summary, ws_data, base_all_results):
     """Sheet Summary: pie chart % Different cho từng base dir."""
 
-    # Ghi data vào ws_data (sheet ẩn)
     ws_data.cell(row=1, column=1, value="Same")
     ws_data.cell(row=2, column=1, value="Different")
+    ws_data.cell(row=3, column=1, value="Not Responded")
 
     bases = []
     for base_dir, all_results in base_all_results.items():
-        name = os.path.basename(base_dir)
-        same = sum(1 for _, results in all_results if all(r["diff_count"] == 0 for r in results))
-        diff = len(all_results) - same
-        bases.append((name, same, diff))
+        name        = os.path.basename(base_dir)
+        same        = sum(1 for _, results in all_results
+                         if results and results[0].get("diff_count") != -1
+                         and all(r["diff_count"] == 0 for r in results))
+        not_resp    = sum(1 for _, results in all_results
+                         if results and results[0].get("diff_count") == -1)
+        diff        = len(all_results) - same - not_resp
+        bases.append((name, same, diff, not_resp))
 
-    for i, (name, same, diff) in enumerate(bases):
+    for i, (name, same, diff, not_resp) in enumerate(bases):
         ws_data.cell(row=1, column=2 + i, value=same)
         ws_data.cell(row=2, column=2 + i, value=diff)
+        ws_data.cell(row=3, column=2 + i, value=not_resp)
 
-    # Vẽ pie chart cho từng base dir
-    for i, (name, same, diff) in enumerate(bases):
+    for i, (name, same, diff, not_resp) in enumerate(bases):
         col_idx = i % PIE_COLS
         row_idx = i // PIE_COLS
 
@@ -69,26 +74,28 @@ def _write_summary_sheet(ws_summary, ws_data, base_all_results):
         h = cm_to_EMU(PIE_CHART_H)
 
         pie = PieChart()
-        pie.title = name
-        pie.width = PIE_CHART_W
+        pie.title  = name
+        pie.width  = PIE_CHART_W
         pie.height = PIE_CHART_H
 
-        data_pie = Reference(ws_data, min_col=2 + i, min_row=1, max_row=2)
-        cats_pie = Reference(ws_data, min_col=1, min_row=1, max_row=2)
+        data_pie = Reference(ws_data, min_col=2 + i, min_row=1, max_row=3)
+        cats_pie = Reference(ws_data, min_col=1,     min_row=1, max_row=3)
         pie.add_data(data_pie)
         pie.set_categories(cats_pie)
 
-        pt_same = DataPoint(idx=0)
-        pt_same.graphicalProperties.solidFill = "70AD47"
-        pt_diff = DataPoint(idx=1)
-        pt_diff.graphicalProperties.solidFill = "FF4444"
-        pie.series[0].dPt = [pt_same, pt_diff]
+        pt_same     = DataPoint(idx=0)
+        pt_same.graphicalProperties.solidFill     = "70AD47"
+        pt_diff     = DataPoint(idx=1)
+        pt_diff.graphicalProperties.solidFill     = "FF4444"
+        pt_not_resp = DataPoint(idx=2)
+        pt_not_resp.graphicalProperties.solidFill = "FFD966"
+        pie.series[0].dPt = [pt_same, pt_diff, pt_not_resp]
 
         pie.series[0].dLbls = DataLabelList()
-        pie.series[0].dLbls.showPercent = True
-        pie.series[0].dLbls.showVal = False
-        pie.series[0].dLbls.showCatName = False
-        pie.series[0].dLbls.showSerName = False
+        pie.series[0].dLbls.showPercent  = True
+        pie.series[0].dLbls.showVal      = False
+        pie.series[0].dLbls.showCatName  = False
+        pie.series[0].dLbls.showSerName  = False
         pie.series[0].dLbls.showLegendKey = False
 
         anchor = AbsoluteAnchor(pos=XDRPoint2D(x, y), ext=XDRPositiveSize2D(w, h))
@@ -96,18 +103,20 @@ def _write_summary_sheet(ws_summary, ws_data, base_all_results):
         ws_summary.add_chart(pie)
 
 
-def write_detail_sheet(ws, base_all_results, base_profiles=None):
+def write_detail_sheet(ws, base_all_results, base_profiles=None, base_not_responded=None):
     """Sheet Detail: tất cả base dir gộp vào 1 sheet."""
     if base_profiles is None:
         base_profiles = {}
+    if base_not_responded is None:
+        base_not_responded = {}
 
-    # Collect ALL sections
+    # Collect ALL sections (bỏ qua Not Responded sentinel)
     seen = set()
     sections = []
     for _, all_results in base_all_results.items():
         for _, results in all_results:
             for r in results:
-                if r["section"] not in seen:
+                if r["section"] not in seen and r.get("diff_count") != -1:
                     seen.add(r["section"])
                     sections.append(r["section"])
 
@@ -145,14 +154,34 @@ def write_detail_sheet(ws, base_all_results, base_profiles=None):
     # Data rows
     row_idx = 3
     for base_dir, all_results in base_all_results.items():
-        base_name = os.path.basename(base_dir)
-        profiles  = base_profiles.get(base_dir, {})
+        base_name   = os.path.basename(base_dir)
+        profiles    = base_profiles.get(base_dir, {})
+        not_resp_set = base_not_responded.get(base_dir, set())
 
         for filename, results in all_results:
             ws.cell(row=row_idx, column=1, value=base_name)
-
             file_cell = ws.cell(row=row_idx, column=2, value=filename)
 
+            is_not_responded = filename in not_resp_set or (
+                results and results[0].get("diff_count") == -1
+            )
+
+            if is_not_responded:
+                # Mark toàn bộ row màu vàng
+                file_cell.fill = ORANGE_LIGHT
+                file_cell.value = filename
+                for i in range(N_PROFILE):
+                    ws.cell(row=row_idx, column=3 + i).fill = ORANGE_LIGHT
+                col = section_start_col
+                for _ in sections:
+                    ws.cell(row=row_idx, column=col,     value="N/R").fill = ORANGE_LIGHT
+                    ws.cell(row=row_idx, column=col + 1, value="N/R").fill = ORANGE_LIGHT
+                    col += 2
+                ws.cell(row=row_idx, column=col, value="Not Responded").fill = ORANGE_LIGHT
+                row_idx += 1
+                continue
+
+            # Profile
             profile = profiles.get(filename, {})
             for i, (_, key) in enumerate(PROFILE_COLS):
                 col   = 3 + i
@@ -161,6 +190,7 @@ def write_detail_sheet(ws, base_all_results, base_profiles=None):
                 if profile:
                     c.fill = _profile_fill(key, value)
 
+            # Sections
             result_map    = {r["section"]: r for r in results}
             diff_sections = []
             has_any_diff  = False
@@ -206,24 +236,23 @@ def write_detail_sheet(ws, base_all_results, base_profiles=None):
     ws.auto_filter.ref = f"A1:{openpyxl.utils.get_column_letter(section_start_col - 1)}1"
 
 
-def write_report(base_all_results, output_path, base_profiles=None):
+def write_report(base_all_results, output_path, base_profiles=None, base_not_responded=None):
     if base_profiles is None:
         base_profiles = {}
+    if base_not_responded is None:
+        base_not_responded = {}
 
     wb = openpyxl.Workbook()
     wb.remove(wb.active)
 
-    # Sheet ẩn chứa data cho pie charts
     ws_data = wb.create_sheet(title="_data")
     ws_data.sheet_state = "hidden"
 
-    # Sheet 1: Summary — pie charts
     ws_summary = wb.create_sheet(title="Summary")
     _write_summary_sheet(ws_summary, ws_data, base_all_results)
 
-    # Sheet 2: Detail
     ws_detail = wb.create_sheet(title="Detail")
-    write_detail_sheet(ws_detail, base_all_results, base_profiles)
+    write_detail_sheet(ws_detail, base_all_results, base_profiles, base_not_responded)
 
     wb.save(output_path)
     print(f"Excel đã xuất: {output_path}")
