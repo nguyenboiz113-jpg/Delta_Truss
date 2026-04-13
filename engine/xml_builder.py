@@ -28,16 +28,19 @@ def copy_project(base_dir):
     return copy_v1, copy_v2
 
 
+# xml_builder.py
+
 def patch_compatibility_version(trusses_dir, target_version):
     """Patch CompatibilityVersion cho thư mục Trusses theo version chỉ định"""
     parts = target_version.split(".")
     val_version = f"{parts[0]}.{parts[1]}.{parts[2]}.0"
 
     truss_files = list(Path(trusses_dir).glob("*.tdlTruss"))
-
+    
     for f in truss_files:
         content = f.read_text(encoding="utf-8")
 
+        # Patch trong tag tdlObject
         content = re.sub(
             r'(CompatibilityVersion=")[^"]*(")',
             rf'\g<1>{target_version}\2',
@@ -45,6 +48,7 @@ def patch_compatibility_version(trusses_dir, target_version):
             count=1
         )
 
+        # Patch trong State/Inputs
         content = re.sub(
             r'(<CompatibilityVersion Val=")[^"]*(")',
             rf'\g<1>{val_version}\2',
@@ -56,15 +60,8 @@ def patch_compatibility_version(trusses_dir, target_version):
     print(f"✓ Đã patch {len(truss_files)} file → CompatibilityVersion = {target_version}")
 
 
-def build_xml(project_name, trusses_dir, presets_dir, output_dir, xml_path, only_files=None):
-    """
-    Build xml để TrussStudio chạy.
-    only_files: list tên file cụ thể (dùng cho retry). None = glob toàn bộ thư mục.
-    """
-    if only_files is not None:
-        truss_files = sorted([Path(trusses_dir) / f for f in only_files])
-    else:
-        truss_files = sorted(Path(trusses_dir).glob("*.tdlTruss"))
+def build_xml(project_name, trusses_dir, presets_dir, output_dir, xml_path):
+    truss_files = sorted(Path(trusses_dir).glob("*.tdlTruss"))
 
     trusses_xml = ""
     for f in truss_files:
@@ -95,4 +92,4 @@ def build_xml(project_name, trusses_dir, presets_dir, output_dir, xml_path, only
     with open(xml_path, "w", encoding="utf-8") as f:
         f.write(xml)
 
-    print(f"XML đã tạo: {xml_path} ({len(truss_files)} file(s))")
+    print(f"XML đã tạo: {xml_path}")

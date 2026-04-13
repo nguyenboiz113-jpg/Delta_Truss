@@ -22,7 +22,7 @@ def cleanup(copy_v1, copy_v2):
 
 
 def kill_all():
-    """Kill tất cả TrussStudio process đang chạy — dùng khi user bấm Stop"""
+    """Kill tất cả TrussStudio process đang chạy"""
     with _active_processes_lock:
         for p in _active_processes:
             try:
@@ -30,17 +30,6 @@ def kill_all():
             except Exception:
                 pass
         _active_processes.clear()
-
-
-def kill_studios(p1, p2):
-    """Kill riêng 2 process cụ thể — dùng khi retry từng base dir"""
-    for p in (p1, p2):
-        if p is not None:
-            try:
-                p.kill()
-            except Exception:
-                pass
-            _untrack(p)
 
 
 def _launch_studio(studio_dir, xml_path):
@@ -71,14 +60,11 @@ def _untrack(p):
             pass
 
 
-def launch_studios(studio_v1, xml_v1, studio_v2, xml_v2):
-    """Launch cả 2 studio, trả về (p1, p2) để caller tự poll và quản lý"""
+def run_studios_parallel(studio_v1, xml_v1, studio_v2, xml_v2):
+    """Launch v1 trước, đợi STUDIO_LAUNCH_DELAY, rồi launch v2, sau đó chờ cả 2 xong"""
     p1 = _launch_studio(studio_v1, xml_v1)
     p2 = _launch_studio(studio_v2, xml_v2)
-    return p1, p2
-
-
-def finish_studios(p1, p2):
-    """Untrack process sau khi caller xác nhận xong"""
+    p1.wait()
+    p2.wait()
     _untrack(p1)
     _untrack(p2)
