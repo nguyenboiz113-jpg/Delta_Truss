@@ -30,7 +30,7 @@ _stop_event = threading.Event()
 _active_copy_dirs: list[tuple] = []
 _active_copy_dirs_lock = threading.Lock()
 
-MAX_RETRY          = 3
+MAX_RETRY_PER_FILE  = 3
 NO_PROGRESS_TIMEOUT = 60  # giây
 
 
@@ -190,33 +190,44 @@ def run():
                     if var_patch.get():
                         patch_compatibility_version(os.path.join(copy_v2, "Trusses"), get_version_number(ver_v2))
 
-                    trusses_dir_v1  = os.path.join(copy_v1, "Trusses")
-                    trusses_dir_v2  = os.path.join(copy_v2, "Trusses")
+                    trusses_dir_v1 = os.path.join(copy_v1, "Trusses")
+                    trusses_dir_v2 = os.path.join(copy_v2, "Trusses")
+
+                    # ✅ List từ bd gốc — luôn sẵn sàng, tránh race condition với copy
                     all_truss_files = sorted(
-                        f for f in os.listdir(trusses_dir_v1)
+                        f for f in os.listdir(os.path.join(bd, "Trusses"))
                         if f.lower().endswith(".tdltruss")
                     )
                     all_txt_names = [_txt_name(f) for f in all_truss_files]
 
-                    current_files = list(all_truss_files)
-                    not_responded = set()   # set of txt names đã xác nhận hư
-                    retry_count   = 0
+                    log(f"[Base Dir {idx}] Found {len(all_truss_files)} truss file(s).")
+                    if not all_truss_files:
+                        log(f"[Base Dir {idx}] ❌ No .tdltruss files found, skipping.")
+                        return bd, [], {}
 
-                    while True:
+                    # Per-file retry counter: filename → số lần đã retry
+                    file_retry_count: dict[str, int] = {}
+                    # Set các txt_name đã xác nhận không respond được
+                    not_responded: set[str] = set()
+
+                    # current_files = danh sách file cần chạy trong vòng này
+                    current_files = list(all_truss_files)
+
+                    while current_files:
                         if _stop_event.is_set():
                             return bd, [], {}
 
-                        only_files  = current_files if retry_count > 0 else None
-                        retry_label = f"  [retry {retry_count}]" if retry_count > 0 else ""
+                        is_retry = any(file_retry_count.get(f, 0) > 0 for f in current_files)
+                        retry_label = f"  [retry batch]" if is_retry else ""
 
-                        # expected = file đã có sẵn (không thuộc lần này) + file sẽ chạy lần này
-                        current_txt  = {_txt_name(f) for f in current_files}
-                        already_done = len([f for f in os.listdir(output_v1) if f.endswith(".txt") and f not in current_txt])
-                        expected     = already_done + len(current_files)
+                        # expected = số file đã done ngoài batch này + số file trong batch này
+                        current_txt_set = {_txt_name(f) for f in current_files}
+                        already_done    = len([f for f in os.listdir(output_v1) if f.endswith(".txt") and f not in current_txt_set])
+                        expected        = already_done + len(current_files)
 
-                        log(f"[Base Dir {idx}] Building XML ({len(current_files)} file(s))...")
-                        build_xml("project", trusses_dir_v1, os.path.join(copy_v1, "Presets"), output_v1, xml_v1, only_files=only_files)
-                        build_xml("project", trusses_dir_v2, os.path.join(copy_v2, "Presets"), output_v2, xml_v2, only_files=only_files)
+                        log(f"[Base Dir {idx}] Building XML ({len(current_files)} file(s)){retry_label}...")
+                        build_xml("project", trusses_dir_v1, os.path.join(copy_v1, "Presets"), output_v1, xml_v1, only_files=current_files)
+                        build_xml("project", trusses_dir_v2, os.path.join(copy_v2, "Presets"), output_v2, xml_v2, only_files=current_files)
 
                         log(f"[Base Dir {idx}] Launching TrussStudio {ver_v1} & {ver_v2}{retry_label}...")
                         run_studios_parallel(studio_v1, xml_v1, studio_v2, xml_v2)
@@ -242,7 +253,8 @@ def run():
                                 last_total       = current_total
                                 last_change_time = time.time()
                             if time.time() - last_change_time >= NO_PROGRESS_TIMEOUT:
-                                log(f"[Base Dir {idx}] ⚠️ No progress for {NO_PROGRESS_TIMEOUT}s (v1={done_v1}/{expected}, v2={done_v2}/{expected})")
+                                log(f"[Base Dir {idx}] ⚠️ No progress for {NO_PROGRESS_TIMEOUT}s "
+                                    f"(v1={done_v1}/{expected}, v2={done_v2}/{expected})")
                                 break
                             if time.time() - last_log >= 30:
                                 log(f"[Base Dir {idx}] Waiting... v1={done_v1}/{expected}, v2={done_v2}/{expected}")
@@ -254,51 +266,33 @@ def run():
                         if _stop_event.is_set():
                             return bd, [], {}
 
-                        # Check missing trong lần chạy này
+                        # Tìm file missing trong batch vừa chạy
                         done_stems_v1 = {_strip_extensions(f.replace("project_", "")) for f in os.listdir(output_v1) if f.endswith(".txt")}
                         done_stems_v2 = {_strip_extensions(f.replace("project_", "")) for f in os.listdir(output_v2) if f.endswith(".txt")}
-                        all_stems     = {_strip_extensions(f) for f in all_truss_files}
-                        missing       = (all_stems - done_stems_v1) | (all_stems - done_stems_v2)
 
-                        if not missing:
-                            log(f"[Base Dir {idx}] ✅ All {len(all_truss_files)} file(s) done.")
-                            break
+                        next_batch = []
+                        for f in current_files:
+                            stem    = _strip_extensions(f)
+                            txt     = _txt_name(f)
+                            if stem in done_stems_v1 and stem in done_stems_v2:
+                                # Done OK
+                                continue
+                            # File này bị missing
+                            retries = file_retry_count.get(f, 0)
+                            if retries >= MAX_RETRY_PER_FILE:
+                                not_responded.add(txt)
+                                log(f"[Base Dir {idx}] ❌ {f} — max retries ({MAX_RETRY_PER_FILE}) reached, marked not responded.")
+                            else:
+                                file_retry_count[f] = retries + 1
+                                log(f"[Base Dir {idx}] ⚠️ {f} — not responded (retry {retries + 1}/{MAX_RETRY_PER_FILE}).")
+                                next_batch.append(f)
 
-                        # Tìm file stuck đầu tiên trong current_files (theo thứ tự)
-                        stuck_stem     = next((_strip_extensions(f) for f in current_files if _strip_extensions(f) in missing), None)
-                        if stuck_stem is None:
-                            break
-
-                        stuck_filename = next(f for f in all_truss_files if _strip_extensions(f) == stuck_stem)
-                        stuck_txt      = _txt_name(stuck_filename)
-                        stuck_idx      = all_truss_files.index(stuck_filename)
-
-                        if retry_count >= MAX_RETRY:
-                            # Hết lần retry — mark tất cả missing
-                            for stem in missing:
-                                fn = next((f for f in all_truss_files if _strip_extensions(f) == stem), None)
-                                if fn:
-                                    not_responded.add(_txt_name(fn))
-                            log(f"[Base Dir {idx}] ❌ Max retries reached. {len(not_responded)} file(s) not responded.")
-                            break
-
-                        if stuck_txt in not_responded:
-                            # File này đã được retry rồi vẫn hư → skip, retry từ file tiếp theo
-                            log(f"[Base Dir {idx}] ⚠️ {stuck_filename} still not responded, skipping.")
-                            retry_files = all_truss_files[stuck_idx + 1:]
+                        if next_batch:
+                            log(f"[Base Dir {idx}] Retrying {len(next_batch)} file(s)...")
                         else:
-                            # Lần đầu stuck → cho cơ hội retry, mark trước để lần sau biết
-                            not_responded.add(stuck_txt)
-                            log(f"[Base Dir {idx}] ⚠️ Not responded: {stuck_filename}")
-                            retry_files = all_truss_files[stuck_idx:]
+                            log(f"[Base Dir {idx}] ✅ All file(s) done or marked.")
 
-                        if not retry_files:
-                            log(f"[Base Dir {idx}] No more files to retry.")
-                            break
-
-                        current_files = list(retry_files)
-                        retry_count  += 1
-                        log(f"[Base Dir {idx}] Retrying {len(retry_files)} file(s) (attempt {retry_count}/{MAX_RETRY})...")
+                        current_files = next_batch
 
                     # Cleanup
                     cleanup(copy_v1, copy_v2)
