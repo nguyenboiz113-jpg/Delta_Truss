@@ -255,8 +255,8 @@ def run():
                             return bd, [], {}
 
                         # Check missing trong lần chạy này
-                        done_stems_v1 = {_strip_extensions(f) for f in os.listdir(output_v1) if f.endswith(".txt")}
-                        done_stems_v2 = {_strip_extensions(f) for f in os.listdir(output_v2) if f.endswith(".txt")}
+                        done_stems_v1 = {_strip_extensions(f.replace("project_", "")) for f in os.listdir(output_v1) if f.endswith(".txt")}
+                        done_stems_v2 = {_strip_extensions(f.replace("project_", "")) for f in os.listdir(output_v2) if f.endswith(".txt")}
                         all_stems     = {_strip_extensions(f) for f in all_truss_files}
                         missing       = (all_stems - done_stems_v1) | (all_stems - done_stems_v2)
 
