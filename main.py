@@ -220,9 +220,13 @@ def run():
                         retry_label = "  [retry batch]" if is_retry else ""
 
                         # expected = số file đã done ngoài batch này + số file trong batch này
-                        current_txt_set = {_txt_name(f) for f in current_files}
-                        already_done    = len([f for f in os.listdir(output_v1) if f.endswith(".txt") and f not in current_txt_set])
-                        expected        = already_done + len(current_files)
+                        current_stems = {_strip_extensions(f).lower() for f in current_files}
+                        already_done  = len([
+                            f for f in os.listdir(output_v1)
+                            if f.endswith(".txt")
+                            and _strip_extensions(f.replace("project_", "")).lower() not in current_stems
+                        ])
+                        expected      = already_done + len(current_files)
 
                         log(f"[Base Dir {idx}] Building XML ({len(current_files)} file(s)){retry_label}...")
                         build_xml("project", trusses_dir_v1, os.path.join(copy_v1, "Presets"), output_v1, xml_v1, only_files=current_files)
@@ -266,12 +270,15 @@ def run():
                             return bd, [], {}
 
                         # Tìm file missing trong batch vừa chạy
-                        done_stems_v1 = {_strip_extensions(f.replace("project_", "")) for f in os.listdir(output_v1) if f.endswith(".txt")}
-                        done_stems_v2 = {_strip_extensions(f.replace("project_", "")) for f in os.listdir(output_v2) if f.endswith(".txt")}
+                        # lowercase để tránh case-sensitive mismatch (vd: .tdltruss vs .TDLTRUSS)
+                        done_stems_v1 = {_strip_extensions(f.replace("project_", "")).lower() for f in os.listdir(output_v1) if f.endswith(".txt")}
+                        done_stems_v2 = {_strip_extensions(f.replace("project_", "")).lower() for f in os.listdir(output_v2) if f.endswith(".txt")}
 
-                        next_batch = []
+                        next_batch      = []
+                        newly_marked    = []
+                        newly_retrying  = []
                         for f in current_files:
-                            stem = _strip_extensions(f)
+                            stem = _strip_extensions(f).lower()
                             txt  = _txt_name(f)
                             if stem in done_stems_v1 and stem in done_stems_v2:
                                 continue  # Done OK
@@ -279,11 +286,21 @@ def run():
                             retries = file_retry_count.get(f, 0)
                             if retries >= MAX_RETRY_PER_FILE:
                                 not_responded.add(txt)
-                                log(f"[Base Dir {idx}] ❌ {f} — max retries ({MAX_RETRY_PER_FILE}) reached, marked not responded.")
+                                newly_marked.append(f)
                             else:
                                 file_retry_count[f] = retries + 1
-                                log(f"[Base Dir {idx}] ⚠️ {f} — not responded (retry {retries + 1}/{MAX_RETRY_PER_FILE}).")
+                                newly_retrying.append((f, retries + 1))
                                 next_batch.append(f)
+
+                        # Log gọn — chỉ summary thay vì từng dòng
+                        if newly_marked:
+                            log(f"[Base Dir {idx}] ❌ {len(newly_marked)} file(s) max retries reached, marked not responded: "
+                                f"{', '.join(newly_marked[:5])}{'...' if len(newly_marked) > 5 else ''}")
+                        if newly_retrying:
+                            retry_num = newly_retrying[0][1]
+                            sample    = [f for f, _ in newly_retrying[:5]]
+                            log(f"[Base Dir {idx}] ⚠️ {len(newly_retrying)} file(s) not responded (retry {retry_num}/{MAX_RETRY_PER_FILE}): "
+                                f"{', '.join(sample)}{'...' if len(newly_retrying) > 5 else ''}")
 
                         if next_batch:
                             log(f"[Base Dir {idx}] Retrying {len(next_batch)} file(s)...")
