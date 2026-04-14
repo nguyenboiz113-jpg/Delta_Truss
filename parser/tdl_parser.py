@@ -1,4 +1,3 @@
-# tdl_parser.py
 import re
 import xml.etree.ElementTree as ET
 
@@ -67,11 +66,20 @@ def _get_script_field(script_text, key):
 
 
 def _parse_wind(load_template):
-    return "Yes" if "MPH" in load_template.upper() else "No"
+    t = load_template.upper()
+    if "NO WIND" in t:
+        return "No"
+    if "MPH" in t or "q50=" in load_template or "KPA" in t:
+        return "Yes"
+    return "No"
 
 
 def _parse_snow(load_template):
-    return "Yes" if "Pg=" in load_template else "No"
+    if "No Snow" in load_template:
+        return "No"
+    if "Pg=" in load_template or "Ss=" in load_template:
+        return "Yes"
+    return "No"
 
 
 def _trim_load_template(load_template):

@@ -1,4 +1,3 @@
-# excel_writer.py
 import os
 import openpyxl
 from openpyxl.styles import PatternFill, Font, Alignment
@@ -40,8 +39,18 @@ def _profile_fill(key, value):
     return BLUE_LIGHT
 
 
+def _base_dir_names(base_all_results):
+    """Trả về dict {base_dir: 'Base Dir N - tên_folder'}"""
+    return {
+        bd: f"Base Dir {i + 1} - {os.path.basename(bd)}"
+        for i, bd in enumerate(base_all_results)
+    }
+
+
 def _write_summary_sheet(ws_summary, ws_data, base_all_results):
     """Sheet Summary: pie chart % Different cho từng base dir."""
+
+    base_names = _base_dir_names(base_all_results)
 
     # Ghi data vào ws_data (sheet ẩn)
     ws_data.cell(row=1, column=1, value="Same")
@@ -49,7 +58,7 @@ def _write_summary_sheet(ws_summary, ws_data, base_all_results):
 
     bases = []
     for base_dir, all_results in base_all_results.items():
-        name = os.path.basename(base_dir)
+        name = base_names[base_dir]
         same = sum(1 for _, results in all_results if all(r["diff_count"] == 0 for r in results))
         diff = len(all_results) - same
         bases.append((name, same, diff))
@@ -101,6 +110,8 @@ def write_detail_sheet(ws, base_all_results, base_profiles=None):
     if base_profiles is None:
         base_profiles = {}
 
+    base_names = _base_dir_names(base_all_results)
+
     # Collect ALL sections
     seen = set()
     sections = []
@@ -145,7 +156,7 @@ def write_detail_sheet(ws, base_all_results, base_profiles=None):
     # Data rows
     row_idx = 3
     for base_dir, all_results in base_all_results.items():
-        base_name = os.path.basename(base_dir)
+        base_name = base_names[base_dir]
         profiles  = base_profiles.get(base_dir, {})
 
         for filename, results in all_results:
@@ -189,7 +200,7 @@ def write_detail_sheet(ws, base_all_results, base_profiles=None):
             row_idx += 1
 
     # Column widths
-    ws.column_dimensions["A"].width = 20
+    ws.column_dimensions["A"].width = 30
     ws.column_dimensions["B"].width = 25
     profile_widths = [30, 6, 6, 6, 10, 15, 60]
     for i, w in enumerate(profile_widths):
