@@ -299,8 +299,20 @@ def run():
                         if newly_retrying:
                             retry_num = newly_retrying[0][1]
                             sample    = [f for f, _ in newly_retrying[:5]]
-                            log(f"[Base Dir {idx}] ⚠️ {len(newly_retrying)} file(s) not responded (retry {retry_num}/{MAX_RETRY_PER_FILE}): "
-                                f"{', '.join(sample)}{'...' if len(newly_retrying) > 5 else ''}")
+                            
+                            # Tìm file cuối cùng v2 chạy được trước khi dừng
+                            last_v2 = None
+                            for f in current_files:
+                                stem = _strip_extensions(f).lower()
+                                if stem in done_stems_v2 and f not in [x for x, _ in newly_retrying]:
+                                    last_v2 = f
+                            
+                            if last_v2:
+                                log(f"[Base Dir {idx}] ⚠️ v2 stopped after {last_v2} (retry {retry_num}/{MAX_RETRY_PER_FILE}) — "
+                                    f"{len(newly_retrying)} file(s) not reached: {', '.join(sample)}{'...' if len(newly_retrying) > 5 else ''}")
+                            else:
+                                log(f"[Base Dir {idx}] ⚠️ {len(newly_retrying)} file(s) not responded (retry {retry_num}/{MAX_RETRY_PER_FILE}): "
+                                    f"{', '.join(sample)}{'...' if len(newly_retrying) > 5 else ''}")
 
                         if next_batch:
                             log(f"[Base Dir {idx}] Retrying {len(next_batch)} file(s)...")
