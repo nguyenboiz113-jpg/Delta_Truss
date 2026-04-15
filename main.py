@@ -34,7 +34,7 @@ _stop_event = threading.Event()
 _active_copy_dirs: list[tuple] = []
 _active_copy_dirs_lock = threading.Lock()
 
-MAX_RETRY_PER_FILE  = 3
+MAX_RETRY_PER_FILE  = 1
 NO_PROGRESS_TIMEOUT = 60  # giây
 
 

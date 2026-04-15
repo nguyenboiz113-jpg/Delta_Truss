@@ -9,7 +9,15 @@ FF_ANALYSIS_TRIGGER = "FF_PRMP_AnalysisTrigger"
 
 
 def _get_config_path(studio_path: str) -> str:
-    return os.path.join(os.path.dirname(studio_path), CONFIG_FILENAME)
+    if os.path.isfile(studio_path):
+        base = os.path.dirname(studio_path)
+    else:
+        base = studio_path 
+    candidate = os.path.join(base, CONFIG_FILENAME)
+    if os.path.exists(candidate):
+        return candidate
+    
+    return os.path.join(base, "TrussStudio", CONFIG_FILENAME)
 
 
 def read_feature_flags(studio_path: str) -> dict:
