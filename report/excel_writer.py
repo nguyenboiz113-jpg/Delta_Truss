@@ -84,6 +84,7 @@ def _get_all_sections(base_all_results):
 
 
 def _classify_file(results, all_sections):
+    # Not respond = tất cả entries đều có diff_count == -1
     if results and all(r["diff_count"] == -1 for r in results):
         return "not_respond"
     if any(r["diff_count"] > 0 for r in results):
@@ -202,6 +203,10 @@ def write_detail_sheet(ws, base_all_results, base_profiles=None):
 
     base_names   = _base_dir_names(base_all_results)
     all_sections = _get_all_sections(base_all_results)
+
+    # Lọc bỏ section "Not Responded" khỏi all_sections để không render thành cột
+    all_sections = [s for s in all_sections if s != "Not Responded"]
+
     section_start_col = 3 + N_PROFILE
     last_col = section_start_col + len(all_sections) * 2
 
@@ -261,6 +266,9 @@ def write_detail_sheet(ws, base_all_results, base_profiles=None):
         for filename, results in all_results:
             alt = ROW_ALT if row_idx % 2 == 0 else ROW_NORM
 
+            # Not respond thật = tất cả entries đều diff_count == -1
+            is_not_respond = results and all(r["diff_count"] == -1 for r in results)
+
             _set(ws.cell(row=row_idx, column=1), base_name,
                  font=F_MUTED, fill=alt, border=B_NORM, align=LEFT)
 
@@ -279,28 +287,34 @@ def write_detail_sheet(ws, base_all_results, base_profiles=None):
 
             result_map    = {r["section"]: r for r in results}
             diff_sections = []
-            has_diff = has_nr = False
+            has_diff = False
+            has_nr   = is_not_respond
             col      = section_start_col
 
             for section in all_sections:
-                r = result_map.get(section)
-                if r:
-                    is_diff = r["diff_count"] > 0
-                    fl = FAIL_FILL if is_diff else PASS_FILL
-                    fn = Font(name="Calibri", bold=is_diff, size=10,
-                              color="C62828" if is_diff else "2E7D32")
-                    _set(ws.cell(row=row_idx, column=col),   r["diff_count"],
-                         font=fn, fill=fl, border=B_NORM, align=CENTER)
-                    _set(ws.cell(row=row_idx, column=col+1), f"{r['diff_pct']}%",
-                         font=fn, fill=fl, border=B_NORM, align=CENTER)
-                    if is_diff:
-                        diff_sections.append(section)
-                        has_diff = True
-                else:
+                if is_not_respond:
                     for c_col in [col, col+1]:
-                        _set(ws.cell(row=row_idx, column=c_col), "—",
+                        _set(ws.cell(row=row_idx, column=c_col), "N/R",
                              font=F_MUTED, fill=WARN_FILL, border=B_NORM, align=CENTER)
-                    has_nr = True
+                else:
+                    r = result_map.get(section)
+                    if r:
+                        is_diff = r["diff_count"] > 0
+                        fl = FAIL_FILL if is_diff else PASS_FILL
+                        fn = Font(name="Calibri", bold=is_diff, size=10,
+                                  color="C62828" if is_diff else "2E7D32")
+                        _set(ws.cell(row=row_idx, column=col),   r["diff_count"],
+                             font=fn, fill=fl, border=B_NORM, align=CENTER)
+                        _set(ws.cell(row=row_idx, column=col+1), f"{r['diff_pct']}%",
+                             font=fn, fill=fl, border=B_NORM, align=CENTER)
+                        if is_diff:
+                            diff_sections.append(section)
+                            has_diff = True
+                    else:
+                        # Section không có trong file này — không phải not respond
+                        for c_col in [col, col+1]:
+                            _set(ws.cell(row=row_idx, column=c_col), "—",
+                                 font=F_MUTED, fill=alt, border=B_NORM, align=CENTER)
                 col += 2
 
             # File cell styling
@@ -330,7 +344,7 @@ def write_detail_sheet(ws, base_all_results, base_profiles=None):
     # Column widths
     ws.column_dimensions["A"].width = 28
     ws.column_dimensions["B"].width = 26
-    for i, w in enumerate([20, 6, 6, 6, 11, 10, 36]):
+    for i, w in enumerate([20, 6, 6, 6, 11, 14, 40]):
         ws.column_dimensions[get_column_letter(3+i)].width = w
 
     col = section_start_col
@@ -338,7 +352,7 @@ def write_detail_sheet(ws, base_all_results, base_profiles=None):
         ws.column_dimensions[get_column_letter(col)].width   = 8
         ws.column_dimensions[get_column_letter(col+1)].width = 7
         col += 2
-    ws.column_dimensions[get_column_letter(col)].width = 42
+    ws.column_dimensions[get_column_letter(col)].width = 55
 
     ws.freeze_panes = ws.cell(row=4, column=3)
     ws.auto_filter.ref = f"A3:{get_column_letter(section_start_col-1)}3"
