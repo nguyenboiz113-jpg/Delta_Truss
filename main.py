@@ -30,7 +30,7 @@ gui_refs = {}
 # Stop flag
 _stop_event = threading.Event()
 
-# Track copy dirs để cleanup khi stop
+# Track copy dirs để cleanup khi stop z
 _active_copy_dirs: list[tuple] = []
 _active_copy_dirs_lock = threading.Lock()
 
