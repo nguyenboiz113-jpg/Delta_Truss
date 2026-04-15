@@ -84,7 +84,6 @@ def _get_all_sections(base_all_results):
 
 
 def _classify_file(results, all_sections):
-    # Not respond = chỉ có entry "Not Responded" với diff_count == -1
     if results and all(r["diff_count"] == -1 for r in results):
         return "not_respond"
     if any(r["diff_count"] > 0 for r in results):
