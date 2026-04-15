@@ -261,15 +261,15 @@ def setup_gui(callbacks):
 
     # Row 1: Patch
     chk_row1 = tk.Frame(chk_frame, bg=BG)
-    chk_row1.pack(anchor="w")
+    chk_row1.grid(row=0, column=0, sticky="w")
     ttk.Checkbutton(chk_row1, text="Patch CompatibilityVersion (V1)",
                     variable=var_patch_v1, style="TCheckbutton").pack(side=tk.LEFT, padx=(0, 16))
     ttk.Checkbutton(chk_row1, text="Patch CompatibilityVersion (V2)",
                     variable=var_patch, style="TCheckbutton").pack(side=tk.LEFT)
 
-    # Row 2: Feature flags V1
+    # Row 2: Feature flags
     chk_row2 = tk.Frame(chk_frame, bg=BG)
-    chk_row2.pack(anchor="w", pady=(2, 0))
+    chk_row2.grid(row=1, column=0, sticky="w", pady=(2, 0))
     tk.Label(chk_row2, text="V1:", bg=BG, fg=SUBTEXT,
              font=("Segoe UI", 8, "bold")).pack(side=tk.LEFT, padx=(0, 4))
     ttk.Checkbutton(chk_row2, text="ParallelChord",

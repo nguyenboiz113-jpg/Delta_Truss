@@ -16,7 +16,7 @@ from parse import parse_version, get_version_number
 from gui.gui import setup_gui, get_selected_base_dir
 from tkinter import messagebox
 from parser.tdl_parser import parse_tdl
-from studio_config_parser import (
+from parser.studio_config_parser import (
     apply_and_restore_feature_flags,
     build_output_name,
 )
