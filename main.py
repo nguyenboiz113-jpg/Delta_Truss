@@ -16,6 +16,10 @@ from parse import parse_version, get_version_number
 from gui.gui import setup_gui, get_selected_base_dir
 from tkinter import messagebox
 from parser.tdl_parser import parse_tdl
+from studio_config_parser import (
+    apply_and_restore_feature_flags,
+    build_output_name,
+)
 
 load_config()
 
@@ -131,6 +135,10 @@ def run():
     entry_v2     = gui_refs.get("entry_v2")
     var_patch_v1 = gui_refs.get("var_patch_v1")
     var_patch    = gui_refs.get("var_patch")
+    var_parallel_v1 = gui_refs.get("var_parallel_v1")
+    var_trigger_v1  = gui_refs.get("var_trigger_v1")
+    var_parallel_v2 = gui_refs.get("var_parallel_v2")
+    var_trigger_v2  = gui_refs.get("var_trigger_v2")
     btn_run      = gui_refs.get("btn_run")
     btn_stop     = gui_refs.get("btn_stop")
     base_rows    = gui_refs.get("base_rows", [])
@@ -155,6 +163,11 @@ def run():
 
     def _run():
         try:
+            p1 = var_parallel_v1.get()
+            t1 = var_trigger_v1.get()
+            p2 = var_parallel_v2.get()
+            t2 = var_trigger_v2.get()
+
             ver_v1 = parse_version(studio_v1)
             ver_v2 = parse_version(studio_v2)
 
@@ -173,8 +186,8 @@ def run():
                     output_dir = os.path.join(bd, "output")
                     if os.path.exists(output_dir):
                         shutil.rmtree(output_dir)
-                    output_v1 = os.path.join(output_dir, (ver_v1 + "_patched") if var_patch_v1.get() else ver_v1)
-                    output_v2 = os.path.join(output_dir, (ver_v2 + "_patched") if var_patch.get() else ver_v2)
+                    output_v1 = os.path.join(output_dir, build_output_name(ver_v1, var_patch_v1.get(), p1, t1))
+                    output_v2 = os.path.join(output_dir, build_output_name(ver_v2, var_patch.get(),    p2, t2))
                     os.makedirs(output_v1, exist_ok=True)
                     os.makedirs(output_v2, exist_ok=True)
 
@@ -233,7 +246,13 @@ def run():
                         build_xml("project", trusses_dir_v2, os.path.join(copy_v2, "Presets"), output_v2, xml_v2, only_files=current_files)
 
                         log(f"[Base Dir {idx}] Launching TrussStudio {ver_v1} & {ver_v2}{retry_label}...")
-                        run_studios_parallel(studio_v1, xml_v1, studio_v2, xml_v2)
+                        restore_v1 = apply_and_restore_feature_flags(studio_v1, p1, t1)
+                        restore_v2 = apply_and_restore_feature_flags(studio_v2, p2, t2)
+                        try:
+                            run_studios_parallel(studio_v1, xml_v1, studio_v2, xml_v2)
+                        finally:
+                            restore_v1()
+                            restore_v2()
 
                         for xml in [xml_v1, xml_v2]:
                             if os.path.exists(xml):

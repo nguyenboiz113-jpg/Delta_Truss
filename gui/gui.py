@@ -20,6 +20,10 @@ entry_v1 = None
 entry_v2 = None
 var_patch_v1 = None
 var_patch = None
+var_parallel_v1 = None
+var_trigger_v1  = None
+var_parallel_v2 = None
+var_trigger_v2  = None
 var_output_base = None
 var_extract_base = None
 btn_run = None
@@ -157,6 +161,7 @@ def _on_mousewheel(event):
 
 def setup_gui(callbacks):
     global root, txt_log, txt_extract, entry_v1, entry_v2, var_patch_v1, var_patch
+    global var_parallel_v1, var_trigger_v1, var_parallel_v2, var_trigger_v2
     global var_output_base, var_extract_base, btn_run, btn_stop, btn_extract
     global dd_output, dd_extract
     global bases_canvas, bases_scrollbar, bases_frame, bases_frame_id
@@ -244,14 +249,39 @@ def setup_gui(callbacks):
     entry_v2 = add_field(content, 4, "Studio Dir V2", "studio_dir_v2")
 
     # Patch checkboxes
-    var_patch_v1 = tk.BooleanVar(value=False)
-    var_patch = tk.BooleanVar(value=False)
+    var_patch_v1    = tk.BooleanVar(value=False)
+    var_patch       = tk.BooleanVar(value=False)
+    var_parallel_v1 = tk.BooleanVar(value=False)
+    var_trigger_v1  = tk.BooleanVar(value=False)
+    var_parallel_v2 = tk.BooleanVar(value=False)
+    var_trigger_v2  = tk.BooleanVar(value=False)
+
     chk_frame = tk.Frame(content, bg=BG)
     chk_frame.grid(row=5, column=1, sticky="w", padx=4, pady=4)
-    ttk.Checkbutton(chk_frame, text="Patch CompatibilityVersion (V1)",
+
+    # Row 1: Patch
+    chk_row1 = tk.Frame(chk_frame, bg=BG)
+    chk_row1.pack(anchor="w")
+    ttk.Checkbutton(chk_row1, text="Patch CompatibilityVersion (V1)",
                     variable=var_patch_v1, style="TCheckbutton").pack(side=tk.LEFT, padx=(0, 16))
-    ttk.Checkbutton(chk_frame, text="Patch CompatibilityVersion (V2)",
+    ttk.Checkbutton(chk_row1, text="Patch CompatibilityVersion (V2)",
                     variable=var_patch, style="TCheckbutton").pack(side=tk.LEFT)
+
+    # Row 2: Feature flags V1
+    chk_row2 = tk.Frame(chk_frame, bg=BG)
+    chk_row2.pack(anchor="w", pady=(2, 0))
+    tk.Label(chk_row2, text="V1:", bg=BG, fg=SUBTEXT,
+             font=("Segoe UI", 8, "bold")).pack(side=tk.LEFT, padx=(0, 4))
+    ttk.Checkbutton(chk_row2, text="ParallelChord",
+                    variable=var_parallel_v1, style="TCheckbutton").pack(side=tk.LEFT, padx=(0, 12))
+    ttk.Checkbutton(chk_row2, text="AnalysisTrigger",
+                    variable=var_trigger_v1,  style="TCheckbutton").pack(side=tk.LEFT, padx=(0, 24))
+    tk.Label(chk_row2, text="V2:", bg=BG, fg=SUBTEXT,
+             font=("Segoe UI", 8, "bold")).pack(side=tk.LEFT, padx=(0, 4))
+    ttk.Checkbutton(chk_row2, text="ParallelChord",
+                    variable=var_parallel_v2, style="TCheckbutton").pack(side=tk.LEFT, padx=(0, 12))
+    ttk.Checkbutton(chk_row2, text="AnalysisTrigger",
+                    variable=var_trigger_v2,  style="TCheckbutton").pack(side=tk.LEFT)
 
     # ==================== RUN ROW ====================
     run_frame = tk.Frame(content, bg=BG)
@@ -326,6 +356,10 @@ def setup_gui(callbacks):
         "entry_v2":         entry_v2,
         "var_patch_v1":     var_patch_v1,
         "var_patch":        var_patch,
+        "var_parallel_v1":  var_parallel_v1,
+        "var_trigger_v1":   var_trigger_v1,
+        "var_parallel_v2":  var_parallel_v2,
+        "var_trigger_v2":   var_trigger_v2,
         "var_output_base":  var_output_base,
         "var_extract_base": var_extract_base,
         "btn_run":          btn_run,
