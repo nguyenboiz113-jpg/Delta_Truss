@@ -283,6 +283,9 @@ def setup_gui(callbacks):
                          command=callbacks["run"], width=20)
     btn_run.pack(side=tk.LEFT, padx=(0, 8))
 
+    root.bind('<Control-r>', lambda e: callbacks["run"]())
+    root.bind('<F5>', lambda e: callbacks["run"]())
+
     btn_stop = ttk.Button(run_frame, text="⏹  Stop", style="Red.TButton",
                           command=callbacks["stop"], width=14, state=tk.DISABLED)
     btn_stop.pack(side=tk.LEFT, padx=(0, 8))
@@ -296,6 +299,7 @@ def setup_gui(callbacks):
                command=callbacks["open_output"], width=14).pack(side=tk.LEFT, padx=(0, 8))
     ttk.Button(run_frame, text="📊  Excel", style="Green.TButton",
                command=callbacks["open_excel"], width=14).pack(side=tk.LEFT)
+    root.bind('<Control-e>', lambda e: callbacks["open_excel"]())
 
     # Separator
     tk.Frame(content, height=1, bg=BORDER).grid(row=7, column=0, columnspan=3, sticky="ew", pady=6)
