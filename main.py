@@ -1,4 +1,4 @@
-# main.py - Core logic and entry point
+# main.py - Core logic and entry point 1
 import tkinter as tk
 import os
 import shutil
