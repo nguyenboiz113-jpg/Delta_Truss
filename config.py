@@ -1,4 +1,3 @@
-# config.py
 import json
 import os
 
@@ -8,6 +7,12 @@ CONFIG = {
     "base_dir":      "",
     "studio_dir_v1": "",
     "studio_dir_v2": "",
+    "patch_v1":      False,
+    "patch_v2":      False,
+    "parallel_v1":   False,
+    "trigger_v1":    False,
+    "parallel_v2":   False,
+    "trigger_v2":    False,
 }
 
 def load_config():

@@ -23,19 +23,16 @@ from parser.studio_config_parser import (
 
 load_config()
 
-# Global references to GUI elements (populated by setup_gui)
 gui_root = None
 gui_refs = {}
 
-# Stop flag
 _stop_event = threading.Event()
 
-# Track copy dirs để cleanup khi stop z
 _active_copy_dirs: list[tuple] = []
 _active_copy_dirs_lock = threading.Lock()
 
 MAX_RETRY_PER_FILE  = 1
-NO_PROGRESS_TIMEOUT = 60  # giây
+NO_PROGRESS_TIMEOUT = 60
 
 
 def _register_copy(copy_v1, copy_v2):
@@ -95,7 +92,6 @@ def _parse_profiles(base_dir, filenames):
 
 
 def stop():
-    """Kill tất cả TrussStudio + dọn dẹp copy dirs + xml"""
     _stop_event.set()
     log("⛔ Stopping...")
 
@@ -131,17 +127,17 @@ def stop():
 
 
 def run():
-    entry_v1     = gui_refs.get("entry_v1")
-    entry_v2     = gui_refs.get("entry_v2")
-    var_patch_v1 = gui_refs.get("var_patch_v1")
-    var_patch    = gui_refs.get("var_patch")
+    entry_v1        = gui_refs.get("entry_v1")
+    entry_v2        = gui_refs.get("entry_v2")
+    var_patch_v1    = gui_refs.get("var_patch_v1")
+    var_patch       = gui_refs.get("var_patch")
     var_parallel_v1 = gui_refs.get("var_parallel_v1")
     var_trigger_v1  = gui_refs.get("var_trigger_v1")
     var_parallel_v2 = gui_refs.get("var_parallel_v2")
     var_trigger_v2  = gui_refs.get("var_trigger_v2")
-    btn_run      = gui_refs.get("btn_run")
-    btn_stop     = gui_refs.get("btn_stop")
-    base_rows    = gui_refs.get("base_rows", [])
+    btn_run         = gui_refs.get("btn_run")
+    btn_stop        = gui_refs.get("btn_stop")
+    base_rows       = gui_refs.get("base_rows", [])
 
     studio_v1 = entry_v1.get().strip()
     studio_v2 = entry_v2.get().strip()
@@ -154,6 +150,12 @@ def run():
     config.CONFIG["studio_dir_v1"] = studio_v1
     config.CONFIG["studio_dir_v2"] = studio_v2
     config.CONFIG["base_dirs"]     = base_dirs
+    config.CONFIG["patch_v1"]      = var_patch_v1.get()
+    config.CONFIG["patch_v2"]      = var_patch.get()
+    config.CONFIG["parallel_v1"]   = var_parallel_v1.get()
+    config.CONFIG["trigger_v1"]    = var_trigger_v1.get()
+    config.CONFIG["parallel_v2"]   = var_parallel_v2.get()
+    config.CONFIG["trigger_v2"]    = var_trigger_v2.get()
     save_config()
 
     _stop_event.clear()
@@ -206,7 +208,6 @@ def run():
                     trusses_dir_v1 = os.path.join(copy_v1, "Trusses")
                     trusses_dir_v2 = os.path.join(copy_v2, "Trusses")
 
-                    # ✅ List từ bd gốc — luôn sẵn sàng, tránh race condition với copy
                     all_truss_files = sorted(
                         f for f in os.listdir(os.path.join(bd, "Trusses"))
                         if f.lower().endswith(".tdltruss")
@@ -217,12 +218,8 @@ def run():
                         log(f"[Base Dir {idx}] ❌ No .tdltruss files found, skipping.")
                         return bd, [], {}
 
-                    # Per-file retry counter: filename → số lần đã retry
                     file_retry_count: dict[str, int] = {}
-                    # Set các txt_name đã xác nhận không respond được
                     not_responded: set[str] = set()
-
-                    # current_files = danh sách file cần chạy trong vòng này
                     current_files = list(all_truss_files)
 
                     while current_files:
@@ -232,14 +229,13 @@ def run():
                         is_retry    = any(file_retry_count.get(f, 0) > 0 for f in current_files)
                         retry_label = "  [retry batch]" if is_retry else ""
 
-                        # expected = số file đã done ngoài batch này + số file trong batch này
                         current_stems = {_strip_extensions(f).lower() for f in current_files}
                         already_done  = len([
                             f for f in os.listdir(output_v1)
                             if f.endswith(".txt")
                             and _strip_extensions(f.replace("project_", "")).lower() not in current_stems
                         ])
-                        expected      = already_done + len(current_files)
+                        expected = already_done + len(current_files)
 
                         log(f"[Base Dir {idx}] Building XML ({len(current_files)} file(s)){retry_label}...")
                         build_xml("project", trusses_dir_v1, os.path.join(copy_v1, "Presets"), output_v1, xml_v1, only_files=current_files)
@@ -261,7 +257,6 @@ def run():
                         if _stop_event.is_set():
                             return bd, [], {}
 
-                        # Polling chờ output
                         last_log         = time.time()
                         last_change_time = time.time()
                         last_total       = -1
@@ -288,20 +283,17 @@ def run():
                         if _stop_event.is_set():
                             return bd, [], {}
 
-                        # Tìm file missing trong batch vừa chạy
-                        # lowercase để tránh case-sensitive mismatch (vd: .tdltruss vs .TDLTRUSS)
                         done_stems_v1 = {_strip_extensions(f.replace("project_", "")).lower() for f in os.listdir(output_v1) if f.endswith(".txt")}
                         done_stems_v2 = {_strip_extensions(f.replace("project_", "")).lower() for f in os.listdir(output_v2) if f.endswith(".txt")}
 
-                        next_batch      = []
-                        newly_marked    = []
-                        newly_retrying  = []
+                        next_batch     = []
+                        newly_marked   = []
+                        newly_retrying = []
                         for f in current_files:
                             stem = _strip_extensions(f).lower()
                             txt  = _txt_name(f)
                             if stem in done_stems_v1 and stem in done_stems_v2:
-                                continue  # Done OK
-                            # File này bị missing
+                                continue
                             retries = file_retry_count.get(f, 0)
                             if retries >= MAX_RETRY_PER_FILE:
                                 not_responded.add(txt)
@@ -311,21 +303,19 @@ def run():
                                 newly_retrying.append((f, retries + 1))
                                 next_batch.append(f)
 
-                        # Log gọn — chỉ summary thay vì từng dòng
                         if newly_marked:
                             log(f"[Base Dir {idx}] ❌ {len(newly_marked)} file(s) max retries reached, marked not responded: "
                                 f"{', '.join(newly_marked[:5])}{'...' if len(newly_marked) > 5 else ''}")
                         if newly_retrying:
                             retry_num = newly_retrying[0][1]
                             sample    = [f for f, _ in newly_retrying[:5]]
-                            
-                            # Tìm file cuối cùng v2 chạy được trước khi dừng
+
                             last_v2 = None
                             for f in current_files:
                                 stem = _strip_extensions(f).lower()
                                 if stem in done_stems_v2 and f not in [x for x, _ in newly_retrying]:
                                     last_v2 = f
-                            
+
                             if last_v2:
                                 log(f"[Base Dir {idx}] ⚠️ v2 stopped after {last_v2} (retry {retry_num}/{MAX_RETRY_PER_FILE}) — "
                                     f"{len(newly_retrying)} file(s) not reached: {', '.join(sample)}{'...' if len(newly_retrying) > 5 else ''}")
@@ -340,7 +330,6 @@ def run():
 
                         current_files = next_batch
 
-                    # Cleanup
                     cleanup(copy_v1, copy_v2)
                     _unregister_copy(copy_v1, copy_v2)
                     copy_v1 = copy_v2 = None
@@ -348,7 +337,6 @@ def run():
                     if _stop_event.is_set():
                         return bd, [], {}
 
-                    # ✅ Compare — list từ output thực tế như commit cũ, tránh mismatch tên file
                     log(f"[Base Dir {idx}] Comparing...")
                     actual_files = sorted(f for f in os.listdir(output_v1) if f.endswith(".txt"))
                     seen_txt     = set()
@@ -366,7 +354,6 @@ def run():
                         else:
                             log(f"[Base Dir {idx}] [SKIP] {txt_name} — missing in v2 output")
 
-                    # Append các file not_responded không có trong output thực tế
                     for txt_name in not_responded:
                         if txt_name not in seen_txt:
                             all_results.append((txt_name, [{"section": "Not Responded", "diff_count": -1, "diff_pct": -1, "lines_v1": 0, "lines_v2": 0}]))
@@ -533,7 +520,6 @@ def open_extract_dir():
         messagebox.showerror("Error", f"Folder not found:\n{path}")
 
 
-# Setup GUI and run
 if __name__ == "__main__":
     callbacks = {
         "run":              run,

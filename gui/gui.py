@@ -59,29 +59,23 @@ def get_base_dirs():
 
 
 def get_selected_base_dir(label_text):
-    """Convert dropdown label (like 'Base Dir 1') to actual directory path"""
     dirs = get_base_dirs()
     if not label_text or label_text == "-":
         return dirs[0] if dirs else None
-
     try:
         idx = int(label_text.replace("Base Dir ", "")) - 1
         if 0 <= idx < len(dirs):
             return dirs[idx]
     except (ValueError, IndexError):
         pass
-
     return dirs[0] if dirs else None
 
 
 def refresh_dropdowns():
-    """Cập nhật dropdown Output và Extract"""
     if dd_output is None or dd_extract is None:
         return
-
     n = len(base_rows)
     labels = [f"Base Dir {i+1}" for i in range(n)] if n > 0 else ["-"]
-
     for var, dd in [(var_output_base, dd_output), (var_extract_base, dd_extract)]:
         if list(dd["values"]) != labels:
             dd.config(values=labels)
@@ -248,18 +242,17 @@ def setup_gui(callbacks):
     entry_v1 = add_field(content, 3, "Studio Dir V1", "studio_dir_v1")
     entry_v2 = add_field(content, 4, "Studio Dir V2", "studio_dir_v2")
 
-    # Patch checkboxes
-    var_patch_v1    = tk.BooleanVar(value=False)
-    var_patch       = tk.BooleanVar(value=False)
-    var_parallel_v1 = tk.BooleanVar(value=False)
-    var_trigger_v1  = tk.BooleanVar(value=False)
-    var_parallel_v2 = tk.BooleanVar(value=False)
-    var_trigger_v2  = tk.BooleanVar(value=False)
+    # Patch checkboxes — load từ config
+    var_patch_v1    = tk.BooleanVar(value=config.CONFIG.get("patch_v1",    False))
+    var_patch       = tk.BooleanVar(value=config.CONFIG.get("patch_v2",    False))
+    var_parallel_v1 = tk.BooleanVar(value=config.CONFIG.get("parallel_v1", False))
+    var_trigger_v1  = tk.BooleanVar(value=config.CONFIG.get("trigger_v1",  False))
+    var_parallel_v2 = tk.BooleanVar(value=config.CONFIG.get("parallel_v2", False))
+    var_trigger_v2  = tk.BooleanVar(value=config.CONFIG.get("trigger_v2",  False))
 
     chk_frame = tk.Frame(content, bg=BG)
     chk_frame.grid(row=5, column=1, sticky="w", padx=4, pady=4)
 
-    # Row 1: Patch
     chk_row1 = tk.Frame(chk_frame, bg=BG)
     chk_row1.grid(row=0, column=0, sticky="w")
     ttk.Checkbutton(chk_row1, text="Patch CompatibilityVersion (V1)",
@@ -267,7 +260,6 @@ def setup_gui(callbacks):
     ttk.Checkbutton(chk_row1, text="Patch CompatibilityVersion (V2)",
                     variable=var_patch, style="TCheckbutton").pack(side=tk.LEFT)
 
-    # Row 2: Feature flags
     chk_row2 = tk.Frame(chk_frame, bg=BG)
     chk_row2.grid(row=1, column=0, sticky="w", pady=(2, 0))
     tk.Label(chk_row2, text="V1:", bg=BG, fg=SUBTEXT,
@@ -283,7 +275,7 @@ def setup_gui(callbacks):
     ttk.Checkbutton(chk_row2, text="AnalysisTrigger",
                     variable=var_trigger_v2,  style="TCheckbutton").pack(side=tk.LEFT)
 
-    # ==================== RUN ROW ====================
+    # RUN ROW
     run_frame = tk.Frame(content, bg=BG)
     run_frame.grid(row=6, column=0, columnspan=3, pady=14)
 
@@ -308,7 +300,7 @@ def setup_gui(callbacks):
     # Separator
     tk.Frame(content, height=1, bg=BORDER).grid(row=7, column=0, columnspan=3, sticky="ew", pady=6)
 
-    # ==================== EXTRACT SECTION ====================
+    # EXTRACT SECTION
     tk.Label(content, text="Extract files:", bg=BG, fg=TEXT,
              font=("Segoe UI", 9, "bold")).grid(row=8, column=0, padx=(0, 6), pady=5, sticky="nw")
 
@@ -340,7 +332,7 @@ def setup_gui(callbacks):
                       insertbackground=TEXT, padx=8, pady=6)
     txt_log.grid(row=11, column=0, columnspan=3, pady=(2, 16), sticky="nsew")
 
-    # Load base dirs sau khi dd_output và dd_extract đã được tạo
+    # Load base dirs
     saved_bases = config.CONFIG.get("base_dirs") or [config.CONFIG.get("base_dir", "")]
     for val in saved_bases:
         add_base_row(val)
