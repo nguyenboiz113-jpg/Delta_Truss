@@ -36,7 +36,11 @@ def run_all_cases(
     ver_v1 = parse_version(studio_v1)
     ver_v2 = parse_version(studio_v2)
 
-    os.makedirs(output_dir, exist_ok=True)
+    # Tạo folder tên v1.X_v2.Y chứa 6 file Excel
+    folder_name = f"v1.{ver_v1}_v2.{ver_v2}"
+    case_output_dir = os.path.join(output_dir, folder_name)
+    os.makedirs(case_output_dir, exist_ok=True)
+    log_fn(f"[Cases] Output folder: {folder_name}")
 
     results = []
 
@@ -50,8 +54,8 @@ def run_all_cases(
         log_fn(f"  patch={case['patch']}  parallel={case['parallel']}  trigger={case['trigger']}")
         log_fn(f"{'='*60}")
 
-        xlsx_name = f"compare_v1.{ver_v1}_v2.{ver_v2}_{case['name']}.xlsx"
-        xlsx_path = os.path.join(output_dir, xlsx_name)
+        xlsx_name = f"{case['name']}.xlsx"
+        xlsx_path = os.path.join(case_output_dir, xlsx_name)
 
         try:
             base_all_results, base_profiles = _run_core(
