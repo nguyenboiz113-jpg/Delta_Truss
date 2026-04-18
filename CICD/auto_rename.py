@@ -7,6 +7,7 @@ from pathlib import Path
 def get_exe_version(exe_path):
     """Đọc version từ TrussStudio.exe bằng PowerShell."""
     import subprocess
+    import re
     try:
         cmd = f'(Get-Item "{exe_path}").VersionInfo.FileVersion'
         result = subprocess.run(
@@ -14,9 +15,16 @@ def get_exe_version(exe_path):
             capture_output=True, text=True
         )
         version = result.stdout.strip()
-        if version:
-            return version.replace(", ", ".").replace(",", ".")
-        return None
+        if not version:
+            return None
+
+        # Handle "2026.5 [Build 32]" → "2026.5.0.32"
+        match = re.search(r'(\d+)\.(\d+)\s*\[Build\s*(\d+)\]', version)
+        if match:
+            return f"{match.group(1)}.{match.group(2)}.0.{match.group(3)}"
+
+        # Handle normal format
+        return version.replace(", ", ".").replace(",", ".")
     except Exception:
         return None
 
