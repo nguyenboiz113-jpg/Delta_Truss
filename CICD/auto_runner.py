@@ -110,6 +110,19 @@ def _run_pipeline(new_version):
     actual_version = list(renamed.values())[0]
     _log(f"✓ Renamed to: {actual_version}")
 
+    # Check version mới vs V2 hiện tại
+    import json
+    paths_file = INPUT_DIR / "studio_paths.json"
+    if paths_file.exists():
+        try:
+            data = json.loads(paths_file.read_text(encoding="utf-8"))
+            current_v2 = data.get("v2")
+            if current_v2 and Path(current_v2).name == actual_version:
+                _log(f"⚠️ Version {actual_version} same as current V2, skipping.")
+                return
+        except Exception:
+            pass
+
     # 3. Trigger
     _log("\n[3/5] Running trigger...")
     run_trigger(INPUT_DIR, log_fn=_log)
