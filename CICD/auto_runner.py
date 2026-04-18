@@ -1,4 +1,7 @@
 # auto_runner.py - Orchestrator chính
+import sys
+_BASE = Path(sys.executable).parent if getattr(sys, 'frozen', False) else Path(__file__).parent.parent
+INPUT_DIR = _BASE / "input"
 import threading
 import time
 from datetime import datetime

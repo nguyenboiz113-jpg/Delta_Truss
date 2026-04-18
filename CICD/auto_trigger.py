@@ -1,4 +1,7 @@
 # auto_trigger.py - Replace flag, chạy ClrCK/FixSecurity, swap V1/V2
+import sys
+_BASE = Path(sys.executable).parent if getattr(sys, 'frozen', False) else Path(__file__).parent
+FLAG_FILE = _BASE / "it.flg"
 import ctypes
 import shutil
 from pathlib import Path
