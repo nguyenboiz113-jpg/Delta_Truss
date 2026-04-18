@@ -1,7 +1,5 @@
 # auto_runner.py - Orchestrator chính
 import sys
-_BASE = Path(sys.executable).parent if getattr(sys, 'frozen', False) else Path(__file__).parent.parent
-INPUT_DIR = _BASE / "input"
 import threading
 import time
 from datetime import datetime
@@ -12,6 +10,9 @@ from .auto_download import download_latest
 from .auto_rename import rename_by_version
 from .auto_trigger import run_trigger, swap_v1_v2
 from .auto_cases import run_all_cases
+
+_BASE = Path(sys.executable).parent if getattr(sys, 'frozen', False) else Path(__file__).parent.parent
+INPUT_DIR = _BASE / "input"
 
 # ── CONFIG ─────────────────────────────────────────────────────────────────────
 SOURCE_DIR     = r"\\105sync\bld"
