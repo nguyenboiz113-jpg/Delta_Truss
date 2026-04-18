@@ -1,4 +1,4 @@
-# auto_rename.py - Rename folder theo version exe
+# auto_rename.py - Rename folder theo version exe zz
 import shutil
 import time
 from pathlib import Path
