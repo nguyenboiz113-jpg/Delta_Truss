@@ -110,9 +110,9 @@ def _run_pipeline(new_version):
     actual_version = list(renamed.values())[0]
     _log(f"✓ Renamed to: {actual_version}")
 
-    # 3. Trigger
     _log("\n[3/5] Running trigger...")
     run_trigger(INPUT_DIR, log_fn=_log)
+    time.sleep(5)  # Chờ các exe release file
 
     # 4. Swap V1/V2
     _log("\n[4/5] Swapping V1/V2...")
