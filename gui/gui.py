@@ -29,6 +29,8 @@ var_extract_base = None
 btn_run = None
 btn_stop = None
 btn_extract = None
+btn_auto_start = None
+btn_auto_stop  = None
 dd_output = None
 dd_extract = None
 base_rows = []
@@ -157,6 +159,7 @@ def setup_gui(callbacks):
     global root, txt_log, txt_extract, entry_v1, entry_v2, var_patch_v1, var_patch
     global var_parallel_v1, var_trigger_v1, var_parallel_v2, var_trigger_v2
     global var_output_base, var_extract_base, btn_run, btn_stop, btn_extract
+    global btn_auto_start, btn_auto_stop
     global dd_output, dd_extract
     global bases_canvas, bases_scrollbar, bases_frame, bases_frame_id
 
@@ -186,6 +189,11 @@ def setup_gui(callbacks):
     style.map("Green.TButton",
               background=[("active", "#185a34"), ("disabled", "#a0aec0")],
               foreground=[("active", "white")])
+    style.configure("Orange.TButton", background="#e67e22", foreground="white",
+                    font=("Segoe UI", 10, "bold"), borderwidth=0, relief="flat", padding=(16, 7))
+    style.map("Orange.TButton",
+              background=[("active", "#ca6f1e"), ("disabled", "#a0aec0")],
+              foreground=[("active", "white"), ("disabled", "white")])
     style.configure("Small.TButton", background=ACCENT, foreground="white",
                     font=("Segoe UI", 8), borderwidth=0, relief="flat", padding=(6, 3))
     style.configure("Small.TEntry", fieldbackground=PANEL, foreground=TEXT,
@@ -298,23 +306,35 @@ def setup_gui(callbacks):
     ttk.Button(run_frame, text="📁  Output", style="Blue.TButton",
                command=callbacks["open_output"], width=14).pack(side=tk.LEFT, padx=(0, 8))
     ttk.Button(run_frame, text="📊  Excel", style="Green.TButton",
-               command=callbacks["open_excel"], width=14).pack(side=tk.LEFT)
+               command=callbacks["open_excel"], width=14).pack(side=tk.LEFT, padx=(0, 8))
     root.bind('<Control-e>', lambda e: callbacks["open_excel"]())
 
+    # AUTO ROW
+    auto_frame = tk.Frame(content, bg=BG)
+    auto_frame.grid(row=7, column=0, columnspan=3, pady=(0, 8))
+
+    btn_auto_start = ttk.Button(auto_frame, text="🤖  Auto Start", style="Orange.TButton",
+                                command=callbacks["auto_start"], width=20)
+    btn_auto_start.pack(side=tk.LEFT, padx=(0, 8))
+
+    btn_auto_stop = ttk.Button(auto_frame, text="⏹  Auto Stop", style="Red.TButton",
+                               command=callbacks["auto_stop"], width=14, state=tk.DISABLED)
+    btn_auto_stop.pack(side=tk.LEFT)
+
     # Separator
-    tk.Frame(content, height=1, bg=BORDER).grid(row=7, column=0, columnspan=3, sticky="ew", pady=6)
+    tk.Frame(content, height=1, bg=BORDER).grid(row=8, column=0, columnspan=3, sticky="ew", pady=6)
 
     # EXTRACT SECTION
     tk.Label(content, text="Extract files:", bg=BG, fg=TEXT,
-             font=("Segoe UI", 9, "bold")).grid(row=8, column=0, padx=(0, 6), pady=5, sticky="nw")
+             font=("Segoe UI", 9, "bold")).grid(row=9, column=0, padx=(0, 6), pady=5, sticky="nw")
 
     txt_extract = tk.Text(content, height=4, bg=PANEL, fg=TEXT,
                           relief="solid", bd=1, font=("Segoe UI", 9),
                           insertbackground=TEXT, padx=6, pady=5)
-    txt_extract.grid(row=8, column=1, columnspan=2, padx=4, pady=5, sticky="ew")
+    txt_extract.grid(row=9, column=1, columnspan=2, padx=4, pady=5, sticky="ew")
 
     extract_frame = tk.Frame(content, bg=BG)
-    extract_frame.grid(row=9, column=0, columnspan=3, pady=10)
+    extract_frame.grid(row=10, column=0, columnspan=3, pady=10)
 
     btn_extract = ttk.Button(extract_frame, text="⬇  Extract", style="Blue.TButton",
                              command=callbacks["extract"], width=20)
@@ -330,11 +350,12 @@ def setup_gui(callbacks):
 
     # Log area
     tk.Label(content, text="Log", bg=BG, fg=SUBTEXT,
-             font=("Segoe UI", 8)).grid(row=10, column=0, columnspan=3, sticky="sw", pady=(6, 0))
+             font=("Segoe UI", 8)).grid(row=11, column=0, columnspan=3, sticky="sw", pady=(6, 0))
     txt_log = tk.Text(content, height=10, bg=PANEL, fg=TEXT,
                       relief="solid", bd=1, font=("Consolas", 9),
                       insertbackground=TEXT, padx=8, pady=6)
-    txt_log.grid(row=11, column=0, columnspan=3, pady=(2, 16), sticky="nsew")
+    txt_log.grid(row=12, column=0, columnspan=3, pady=(2, 16), sticky="nsew")
+    content.rowconfigure(12, weight=1)
 
     # Load base dirs
     saved_bases = config.CONFIG.get("base_dirs") or [config.CONFIG.get("base_dir", "")]
@@ -361,7 +382,10 @@ def setup_gui(callbacks):
         "btn_run":          btn_run,
         "btn_stop":         btn_stop,
         "btn_extract":      btn_extract,
+        "btn_auto_start":   btn_auto_start,
+        "btn_auto_stop":    btn_auto_stop,
         "dd_output":        dd_output,
         "dd_extract":       dd_extract,
         "base_rows":        base_rows,
+        "root":             root,
     }

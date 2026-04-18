@@ -1,5 +1,4 @@
 # auto_runner.py - Orchestrator chính
-# auto_runner.py
 import threading
 import time
 from datetime import datetime
@@ -191,14 +190,27 @@ def _auto_loop():
     _log("⛔ Auto runner stopped.")
 
 
+def _set_buttons(started):
+    """Enable/disable Auto Start và Auto Stop buttons."""
+    import tkinter as tk
+    btn_start = _gui_refs.get("btn_auto_start")
+    btn_stop  = _gui_refs.get("btn_auto_stop")
+    if btn_start:
+        btn_start.config(state=tk.DISABLED if started else tk.NORMAL)
+    if btn_stop:
+        btn_stop.config(state=tk.NORMAL if started else tk.DISABLED)
+
+
 def start(gui_refs):
     """Gọi từ GUI để bắt đầu auto runner."""
     global _gui_refs
     _gui_refs = gui_refs
     _stop_event.clear()
+    _set_buttons(started=True)
     threading.Thread(target=_auto_loop, daemon=True).start()
 
 
 def stop():
     """Dừng auto runner."""
     _stop_event.set()
+    _set_buttons(started=False)
