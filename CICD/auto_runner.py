@@ -1,18 +1,15 @@
 # auto_runner.py - Orchestrator chính
-import os
-import sys
+# auto_runner.py
 import threading
 import time
 from datetime import datetime
 from pathlib import Path
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-
-from CICD.auto_poll import has_new_build, get_latest_zip
-from CICD.auto_download import download_latest
-from CICD.auto_rename import rename_by_version
-from CICD.auto_trigger import run_trigger, swap_v1_v2
-from CICD.auto_cases import run_all_cases
+from .auto_poll import has_new_build, get_latest_zip
+from .auto_download import download_latest
+from .auto_rename import rename_by_version
+from .auto_trigger import run_trigger, swap_v1_v2
+from .auto_cases import run_all_cases
 
 # ── CONFIG ─────────────────────────────────────────────────────────────────────
 SOURCE_DIR     = r"\\105sync\bld"

@@ -2,7 +2,7 @@
 import shutil
 import zipfile
 from pathlib import Path
-from auto_poll import get_latest_zip
+from .auto_poll import get_latest_zip
 
 
 def download_latest(source_dir, dest_dir, target_version="2026.05", log_fn=print):
