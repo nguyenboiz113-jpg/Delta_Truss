@@ -5,18 +5,19 @@ from pathlib import Path
 
 
 def get_exe_version(exe_path):
-    """Đọc version từ TrussStudio.exe, trả về string 'major.minor.build.revision' hoặc None."""
+    """Đọc version từ TrussStudio.exe bằng PowerShell."""
+    import subprocess
     try:
-        import win32api
-        info = win32api.GetFileVersionInfo(str(exe_path), "\\")
-        ms = info["FileVersionMS"]
-        ls = info["FileVersionLS"]
-        major    = ms >> 16
-        minor    = ms & 0xFFFF
-        build    = ls >> 16
-        revision = ls & 0xFFFF
-        return f"{major}.{minor}.{build}.{revision}"
-    except Exception as e:
+        cmd = f'(Get-Item "{exe_path}").VersionInfo.FileVersion'
+        result = subprocess.run(
+            ["powershell", "-Command", cmd],
+            capture_output=True, text=True
+        )
+        version = result.stdout.strip()
+        if version:
+            return version.replace(", ", ".").replace(",", ".")
+        return None
+    except Exception:
         return None
 
 

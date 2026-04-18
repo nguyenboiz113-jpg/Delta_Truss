@@ -23,13 +23,12 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install pyinstaller openpyxl pywin32
+          pip install pyinstaller openpyxl
 
       - name: Build exe
         run: |
           python -m PyInstaller --onefile --windowed --name DeltaTruss `
             --hidden-import openpyxl `
-            --hidden-import win32api `
             --hidden-import CICD.auto_poll `
             --hidden-import CICD.auto_download `
             --hidden-import CICD.auto_rename `
