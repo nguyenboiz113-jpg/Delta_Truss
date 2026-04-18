@@ -107,7 +107,11 @@ def _run_pipeline(new_version):
         _log("❌ Rename failed, aborting.")
         return
 
-    actual_version = list(renamed.values())[0]
+    # Lấy version của folder vừa extract, không phải folder cũ
+    actual_version = renamed.get(extract_folder.name)
+    if not actual_version:
+        _log("❌ Cannot determine new version, aborting.")
+        return
     _log(f"✓ Renamed to: {actual_version}")
 
     # Check version mới vs V2 hiện tại
@@ -126,9 +130,23 @@ def _run_pipeline(new_version):
     # 3. Trigger
     _log("\n[3/5] Running trigger...")
     run_trigger(INPUT_DIR, log_fn=_log)
+    time.sleep(3)
 
     # 4. Swap V1/V2
     _log("\n[4/5] Swapping V1/V2...")
+
+    # Nếu chưa có studio_paths.json, khởi tạo từ GUI entry_v2
+    import json
+    paths_file = INPUT_DIR / "studio_paths.json"
+    if not paths_file.exists():
+        entry_v2_gui = _gui_refs.get("entry_v2")
+        if entry_v2_gui:
+            gui_v2 = entry_v2_gui.get().strip()
+            if gui_v2:
+                gui_v2_base = str(Path(gui_v2).parent)
+                paths_file.write_text(json.dumps({"v1": None, "v2": gui_v2_base}, indent=2), encoding="utf-8")
+                _log(f"[Swap] Initialized V2 from GUI: {Path(gui_v2_base).name}")
+
     v1_path, v2_path = swap_v1_v2(INPUT_DIR, actual_version, log_fn=_log)
     if not v2_path:
         _log("❌ Swap failed, aborting.")
