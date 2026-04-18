@@ -1,13 +1,9 @@
 # auto_trigger.py - Replace flag, chạy ClrCK/FixSecurity, swap V1/V2
-import sys
 import ctypes
 import shutil
 from pathlib import Path
 
-_BASE = Path(sys.executable).parent if getattr(sys, 'frozen', False) else Path(__file__).parent
-FLAG_FILE = _BASE / "it.flg"
-
-
+FLAG_FILE = Path(__file__).parent / "it.flg"
 
 
 def replace_flag(base, log_fn=print):
@@ -60,36 +56,43 @@ def run_trigger(input_dir, log_fn=print):
 
 def swap_v1_v2(input_dir, new_version, log_fn=print):
     """
-    - Xóa V1 cũ
-    - Đổi V2 hiện tại → V1
-    - Đổi folder new_version → V2
+    Không đổi tên folder, chỉ lưu path V1/V2 vào studio_paths.json.
+    V2 cũ → thành V1, bản mới → thành V2.
     Trả về (v1_path, v2_path) hoặc (None, None) nếu lỗi.
     """
-    input_dir = Path(input_dir)
-    v1_path   = input_dir / "v1"
-    v2_path   = input_dir / "v2"
-    new_path  = input_dir / new_version
+    import json
+    input_dir  = Path(input_dir)
+    paths_file = input_dir / "studio_paths.json"
+    new_path   = input_dir / new_version
 
     if not new_path.exists():
         log_fn(f"[Swap] ❌ New version folder not found: {new_path}")
         return None, None
 
     try:
-        # Xóa V1 cũ
-        if v1_path.exists():
-            log_fn(f"[Swap] Removing old V1...")
-            shutil.rmtree(v1_path)
+        # Đọc V2 hiện tại → sẽ thành V1
+        old_v2 = None
+        if paths_file.exists():
+            data   = json.loads(paths_file.read_text(encoding="utf-8"))
+            old_v2 = data.get("v2")
 
-        # V2 → V1
-        if v2_path.exists():
-            log_fn(f"[Swap] V2 → V1")
-            v2_path.rename(v1_path)
+        # Xóa V1 cũ nếu có
+        if old_v2:
+            old_v1_path = Path(data.get("v1", "")) if data.get("v1") else None
+            if old_v1_path and old_v1_path.exists():
+                log_fn(f"[Swap] Removing old V1: {old_v1_path.name}")
+                shutil.rmtree(old_v1_path)
 
-        # new → V2
-        log_fn(f"[Swap] {new_version} → V2")
-        new_path.rename(v2_path)
+        v1_path = Path(old_v2) if old_v2 else None
+        v2_path = new_path
 
-        log_fn(f"[Swap] ✓ Done: V1={v1_path.name}, V2={v2_path.name}")
+        paths = {
+            "v1": str(v1_path) if v1_path else None,
+            "v2": str(v2_path),
+        }
+        paths_file.write_text(json.dumps(paths, indent=2), encoding="utf-8")
+
+        log_fn(f"[Swap] ✓ V1={v1_path.name if v1_path else None}, V2={v2_path.name}")
         return v1_path, v2_path
 
     except Exception as e:

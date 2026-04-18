@@ -1,5 +1,4 @@
 # auto_runner.py - Orchestrator chính
-import sys
 import threading
 import time
 from datetime import datetime
@@ -10,16 +9,17 @@ from .auto_download import download_latest
 from .auto_rename import rename_by_version
 from .auto_trigger import run_trigger, swap_v1_v2
 from .auto_cases import run_all_cases
-
-_BASE = Path(sys.executable).parent if getattr(sys, 'frozen', False) else Path(__file__).parent.parent
-INPUT_DIR = _BASE / "input"
+import sys as _sys
 
 # ── CONFIG ─────────────────────────────────────────────────────────────────────
 SOURCE_DIR     = r"\\105sync\bld"
 TARGET_VERSION = "2026.05"
 POLL_INTERVAL  = 30 * 60   # 30 phút
 LOG_SAVE_INTERVAL = 24 * 60 * 60  # 24 giờ
-LOG_DIR        = Path(__file__).parent / "logs"
+
+_BASE         = Path(_sys.executable).parent if getattr(_sys, 'frozen', False) else Path(__file__).parent.parent
+INPUT_DIR     = _BASE / "input"
+LOG_DIR       = _BASE / "CICD" / "logs"
 # ──────────────────────────────────────────────────────────────────────────────
 
 _stop_event   = threading.Event()
@@ -110,28 +110,44 @@ def _run_pipeline(new_version):
     actual_version = list(renamed.values())[0]
     _log(f"✓ Renamed to: {actual_version}")
 
+    # 3. Trigger
     _log("\n[3/5] Running trigger...")
     run_trigger(INPUT_DIR, log_fn=_log)
-    time.sleep(5)  # Chờ các exe release file
 
     # 4. Swap V1/V2
     _log("\n[4/5] Swapping V1/V2...")
     v1_path, v2_path = swap_v1_v2(INPUT_DIR, actual_version, log_fn=_log)
-    if not v1_path or not v2_path:
+    if not v2_path:
         _log("❌ Swap failed, aborting.")
         return
 
-    # Update GUI entrie
+    # Tìm TrussStudio.exe trong v1/v2
+    def find_studio_exe(base):
+        if not base or not base.exists():
+            return None
+        exes = list(base.rglob("TrussStudio.exe"))
+        return str(exes[0].parent) if exes else None
+
+    studio_v1 = find_studio_exe(v1_path)
+    studio_v2 = find_studio_exe(v2_path)
+
+    if not studio_v2:
+        _log("❌ TrussStudio.exe not found in V2, aborting.")
+        return
+
+    if not studio_v1:
+        _log("⚠️ No V1 found, using V2 as V1 for first run.")
+        studio_v1 = studio_v2
+
+    # Update GUI entries
     entry_v1 = _gui_refs.get("entry_v1")
     entry_v2 = _gui_refs.get("entry_v2")
     if entry_v1 and entry_v2:
         import tkinter as tk
         entry_v1.delete(0, tk.END)
-        entry_v1.insert(0, str(v1_path))
+        entry_v1.insert(0, studio_v1)
         entry_v2.delete(0, tk.END)
-        entry_v2.insert(0, str(v2_path))
-
-    studio_v1, studio_v2 = str(v1_path), str(v2_path)
+        entry_v2.insert(0, studio_v2)
 
     # 5. Run 6 cases
     _log("\n[5/5] Running 6 cases...")
