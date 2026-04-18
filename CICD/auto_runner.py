@@ -16,7 +16,6 @@ INPUT_DIR = _BASE / "input"
 
 # ── CONFIG ─────────────────────────────────────────────────────────────────────
 SOURCE_DIR     = r"\\105sync\bld"
-INPUT_DIR      = Path(__file__).parent.parent / "input"
 TARGET_VERSION = "2026.05"
 POLL_INTERVAL  = 30 * 60   # 30 phút
 LOG_SAVE_INTERVAL = 24 * 60 * 60  # 24 giờ
