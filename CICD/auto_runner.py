@@ -121,7 +121,7 @@ def _run_pipeline(new_version):
         _log("❌ Swap failed, aborting.")
         return
 
-    # Update GUI entries
+    # Update GUI entrie
     entry_v1 = _gui_refs.get("entry_v1")
     entry_v2 = _gui_refs.get("entry_v2")
     if entry_v1 and entry_v2:
