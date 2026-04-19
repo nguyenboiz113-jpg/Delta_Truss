@@ -1,4 +1,4 @@
-# auto_cases.py - Chạy 6 case tự động, xuất 6 Excel riêng
+# auto_cases.py - Chạy 4 case tự động, xuất 4 Excel riêng
 import os
 import sys
 import threading
@@ -8,12 +8,10 @@ from main import _run_core
 from parse import parse_version
 
 CASES = [
-    {"name": "case1_all_false",     "patch": False, "parallel": False, "trigger": False},
-    {"name": "case2_trigger",       "patch": False, "parallel": False, "trigger": True},
-    {"name": "case3_parallel",      "patch": False, "parallel": True,  "trigger": False},
-    {"name": "case4_patch",         "patch": True,  "parallel": False, "trigger": False},
-    {"name": "case5_patch_trigger", "patch": True,  "parallel": False, "trigger": True},
-    {"name": "case6_patch_parallel","patch": True,  "parallel": True,  "trigger": False},
+    {"name": "case1_all_false",     "patch": False, "trigger": False},
+    {"name": "case2_trigger",       "patch": False, "trigger": True},
+    {"name": "case3_patch",         "patch": True,  "trigger": False},
+    {"name": "case4_patch_trigger", "patch": True,  "trigger": True},
 ]
 
 
@@ -25,9 +23,8 @@ def run_all_cases(
     stop_event=None,
 ):
     """
-    Chạy 6 case so sánh V1 vs V2.
+    Chạy 4 case so sánh V1 vs V2.
     Mỗi case xuất 1 file Excel vào output_dir.
-    Tên file: compare_v1.{ver_v1}_v2.{ver_v2}_{case_name}.xlsx
     Trả về list các xlsx_path đã xuất thành công.
     """
     if stop_event is None:
@@ -36,7 +33,7 @@ def run_all_cases(
     ver_v1 = parse_version(studio_v1)
     ver_v2 = parse_version(studio_v2)
 
-    # Tạo folder tên v1.X_v2.Y chứa 6 file Excel
+    # Tạo folder tên v1.X_v2.Y chứa 4 file Excel
     folder_name = f"v1.{ver_v1}_v2.{ver_v2}"
     case_output_dir = os.path.join(output_dir, folder_name)
     os.makedirs(case_output_dir, exist_ok=True)
@@ -50,8 +47,8 @@ def run_all_cases(
             break
 
         log_fn(f"\n{'='*60}")
-        log_fn(f"[Cases] ▶ Case {i}/6: {case['name']}")
-        log_fn(f"  patch={case['patch']}  parallel={case['parallel']}  trigger={case['trigger']}")
+        log_fn(f"[Cases] ▶ Case {i}/4: {case['name']}")
+        log_fn(f"  patch={case['patch']}  trigger={case['trigger']}")
         log_fn(f"{'='*60}")
 
         xlsx_name = f"{case['name']}.xlsx"
@@ -64,9 +61,9 @@ def run_all_cases(
                 base_dirs=base_dirs,
                 patch_v1=case["patch"],
                 patch_v2=case["patch"],
-                parallel_v1=case["parallel"],
+                parallel_v1=False,
                 trigger_v1=case["trigger"],
-                parallel_v2=case["parallel"],
+                parallel_v2=False,
                 trigger_v2=case["trigger"],
                 xlsx_path=xlsx_path,
                 log_fn=log_fn,
@@ -82,5 +79,5 @@ def run_all_cases(
         except Exception as e:
             log_fn(f"[Cases] ❌ Case {i} error: {e}")
 
-    log_fn(f"\n[Cases] Finished {len(results)}/6 case(s)")
+    log_fn(f"\n[Cases] Finished {len(results)}/4 case(s)")
     return results
