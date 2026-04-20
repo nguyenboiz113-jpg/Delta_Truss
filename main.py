@@ -263,15 +263,25 @@ def _run_core(
                 done_stems_v1 = {_strip_extensions(f.replace("project_", "")).lower() for f in os.listdir(output_v1) if f.endswith(".txt")}
                 done_stems_v2 = {_strip_extensions(f.replace("project_", "")).lower() for f in os.listdir(output_v2) if f.endswith(".txt")}
 
+                # Tính last_v2_idx trước z
+                last_v2_idx = -1
+                for i, f in enumerate(current_files):
+                    stem = _strip_extensions(f).lower()
+                    if stem in done_stems_v2:
+                        last_v2_idx = i
+
                 next_batch     = []
                 newly_marked   = []
                 newly_retrying = []
-                for f in current_files:
+                for i, f in enumerate(current_files):
                     stem = _strip_extensions(f).lower()
                     txt  = _txt_name(f)
                     if stem in done_stems_v1 and stem in done_stems_v2:
                         continue
                     retries = file_retry_count.get(f, 0)
+                    if i > last_v2_idx:
+                        next_batch.append(f)
+                        continue
                     if retries >= MAX_RETRY_PER_FILE:
                         not_responded.add(txt)
                         newly_marked.append(f)
