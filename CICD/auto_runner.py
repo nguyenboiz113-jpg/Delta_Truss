@@ -130,7 +130,7 @@ def _run_pipeline(new_version):
     # 3. Trigger
     _log("\n[3/5] Running trigger...")
     run_trigger(INPUT_DIR, log_fn=_log)
-    time.sleep(3)
+    time.sleep(15)  # Chờ trigger hoàn thành, có thể điều chỉnh nếu cần
 
     # 4. Swap V1/V2
     _log("\n[4/5] Swapping V1/V2...")
@@ -180,8 +180,8 @@ def _run_pipeline(new_version):
         entry_v2.delete(0, tk.END)
         entry_v2.insert(0, studio_v2)
 
-    # 5. Run 6 cases
-    _log("\n[5/5] Running 6 cases...")
+    # 5. Run 4 cases
+    _log("\n[5/5] Running 4 cases...")
     base_dirs  = _get_base_dirs()
     if not base_dirs:
         _log("❌ No base dirs configured, aborting.")

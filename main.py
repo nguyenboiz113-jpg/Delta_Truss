@@ -150,7 +150,7 @@ def _run_core(
     ver_v1 = parse_version(studio_v1)
     ver_v2 = parse_version(studio_v2)
 
-    log_fn(f"Running {len(base_dirs)} base(s), max 5 at a time...")
+    log_fn(f"Running {len(base_dirs)} base(s), max 4 at a time...")
     base_all_results = {}
     base_profiles    = {}
 
@@ -381,7 +381,7 @@ def _run_core(
         orig_idx = base_dirs.index(bd) + 1
         log_fn(f"  [Base Dir {orig_idx}] {os.path.basename(bd)} — {truss_counts[bd]} truss(es)")
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=min(5, len(sorted_base_dirs))) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=min(4, len(sorted_base_dirs))) as executor:
         futures = {
             executor.submit(run_one, bd, base_dirs.index(bd) + 1): bd
             for bd in sorted_base_dirs
