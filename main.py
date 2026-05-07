@@ -381,11 +381,11 @@ def _run_core(
         orig_idx = base_dirs.index(bd) + 1
         log_fn(f"  [Base Dir {orig_idx}] {os.path.basename(bd)} — {truss_counts[bd]} truss(es)")
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=min(4, len(sorted_base_dirs))) as executor:
-        futures = {
-            executor.submit(run_one, bd, base_dirs.index(bd) + 1): bd
-            for bd in sorted_base_dirs
-        }
+    with concurrent.futures.ThreadPoolExecutor(max_workers=min(5, len(sorted_base_dirs))) as executor:
+        futures = {}
+        for bd in sorted_base_dirs:
+            futures[executor.submit(run_one, bd, base_dirs.index(bd) + 1)] = bd
+            time.sleep(5)  # delay 5s giữa mỗi base
         for future in concurrent.futures.as_completed(futures):
             try:
                 bd_result, results, profiles = future.result()
