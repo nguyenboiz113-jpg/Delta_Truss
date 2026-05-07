@@ -2,7 +2,7 @@
 import re
 from pathlib import Path
 
-TARGET_VERSION = "2026.05"
+TARGET_VERSION = "2026.07"
 
 
 def _parse_version(filename):
