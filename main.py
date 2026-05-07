@@ -385,7 +385,7 @@ def _run_core(
         futures = {}
         for bd in sorted_base_dirs:
             futures[executor.submit(run_one, bd, base_dirs.index(bd) + 1)] = bd
-            time.sleep(5)  # delay 5s giữa mỗi base
+            time.sleep(15)  # delay 5s giữa mỗi base
         for future in concurrent.futures.as_completed(futures):
             try:
                 bd_result, results, profiles = future.result()
