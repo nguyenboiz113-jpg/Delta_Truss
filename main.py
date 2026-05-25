@@ -285,13 +285,26 @@ def _run_core(
                     if stem in done_stems_v1 and stem in done_stems_v2:
                         continue
                     retries = file_retry_count.get(f, 0)
-                    if retries >= MAX_RETRY_PER_FILE:
-                        not_responded.add(txt)
-                        newly_marked.append(f)
-                    else:
-                        file_retry_count[f] = retries + 1
+                    if i == culprit_idx:
+                        # thủ phạm: tăng retry count
+                        if retries >= MAX_RETRY_PER_FILE:
+                            not_responded.add(txt)
+                            newly_marked.append(f)
+                        else:
+                            file_retry_count[f] = retries + 1
+                            next_batch.append(f)
+                            newly_retrying.append((f, retries + 1))
+                    elif i > culprit_idx:
+                        # nạn nhân: không tăng retry count
                         next_batch.append(f)
-                        if i <= culprit_idx:
+                    else:
+                        # i <= last_v1_idx và last_v2_idx nhưng không có output
+                        if retries >= MAX_RETRY_PER_FILE:
+                            not_responded.add(txt)
+                            newly_marked.append(f)
+                        else:
+                            file_retry_count[f] = retries + 1
+                            next_batch.append(f)
                             newly_retrying.append((f, retries + 1))
 
                 if newly_marked:
