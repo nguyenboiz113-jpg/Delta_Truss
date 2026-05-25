@@ -285,10 +285,7 @@ def _run_core(
                     if stem in done_stems_v1 and stem in done_stems_v2:
                         continue
                     retries = file_retry_count.get(f, 0)
-                    if i == culprit_idx:
-                        not_responded.add(txt)
-                        newly_marked.append(f)
-                    elif retries >= MAX_RETRY_PER_FILE:
+                    if retries >= MAX_RETRY_PER_FILE:
                         not_responded.add(txt)
                         newly_marked.append(f)
                     else:
