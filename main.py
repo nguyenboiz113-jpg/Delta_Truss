@@ -264,31 +264,38 @@ def _run_core(
                 done_stems_v2 = {_strip_extensions(f.replace("project_", "")).lower() for f in os.listdir(output_v2) if f.endswith(".txt")}
 
                 # Tính last_v2_idx trước z
+                last_v1_idx = -1
                 last_v2_idx = -1
                 for i, f in enumerate(current_files):
                     stem = _strip_extensions(f).lower()
+                    if stem in done_stems_v1:
+                        last_v1_idx = i
                     if stem in done_stems_v2:
                         last_v2_idx = i
 
                 next_batch     = []
                 newly_marked   = []
                 newly_retrying = []
+
+                culprit_idx = min(last_v1_idx, last_v2_idx) + 1
+
                 for i, f in enumerate(current_files):
                     stem = _strip_extensions(f).lower()
                     txt  = _txt_name(f)
                     if stem in done_stems_v1 and stem in done_stems_v2:
                         continue
                     retries = file_retry_count.get(f, 0)
-                    if i > last_v2_idx:
-                        next_batch.append(f)
-                        continue
-                    if retries >= MAX_RETRY_PER_FILE:
+                    if i == culprit_idx:
+                        not_responded.add(txt)
+                        newly_marked.append(f)
+                    elif retries >= MAX_RETRY_PER_FILE:
                         not_responded.add(txt)
                         newly_marked.append(f)
                     else:
                         file_retry_count[f] = retries + 1
-                        newly_retrying.append((f, retries + 1))
                         next_batch.append(f)
+                        if i <= culprit_idx:
+                            newly_retrying.append((f, retries + 1))
 
                 if newly_marked:
                     log_fn(f"[Base Dir {idx}] ❌ {len(newly_marked)} file(s) max retries reached, marked not responded: "
