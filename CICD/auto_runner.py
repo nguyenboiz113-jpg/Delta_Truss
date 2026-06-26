@@ -231,7 +231,7 @@ def _auto_loop():
         except Exception as e:
             _log(f"❌ Poll error: {e}")
 
-        # Chờ POLL_INTERVAL, nhưng check stop mỗi 10s
+        # Chờ POLL_INTERVAL, nhưng check stop mỗi 10s zzz
         for _ in range(POLL_INTERVAL // 10):
             if _stop_event.is_set():
                 break
