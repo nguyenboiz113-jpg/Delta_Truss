@@ -50,7 +50,7 @@ def extract_files(base_dir, studio_v1, studio_v2, filenames_raw, patched_v1=Fals
             shutil.copy2(src_v2, os.path.join(extract_v2, filename))
             ok_v2 = True
 
-        # Bóc stem: "project_0041.TDLtRUSS.txt" -> "0041"
+        # Bóc stem: "project_0041.TDLtRUSS.txt" -> "0041" z
         stem = filename.replace("project_", "").split(".")[0]
         if stem in truss_map:
             truss_name = truss_map[stem]
