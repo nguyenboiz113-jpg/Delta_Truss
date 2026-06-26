@@ -28,7 +28,7 @@ def extract_files(base_dir, studio_v1, studio_v2, filenames_raw, patched_v1=Fals
 
     trusses_dir = os.path.join(base_dir, "Trusses")
 
-    # Build map stem -> actual filename, ví dụ "0041" -> "0041.TDLtRUSS" zz
+    # Build map stem -> actual filename, ví dụ "0041" -> "0041.TDLtRUSS" zzz
     truss_map = {}
     if os.path.isdir(trusses_dir):
         for f in os.listdir(trusses_dir):
