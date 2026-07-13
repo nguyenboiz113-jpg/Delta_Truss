@@ -12,7 +12,7 @@ from .auto_cases import run_all_cases
 import sys as _sys
 
 # ── CONFIG ─────────────────────────────────────────────────────────────────────
-SOURCE_DIR     = r"\\105sync\bld"
+SOURCE_DIR     = r"\\105sync01\BLD"
 TARGET_VERSION = "2026.07"
 POLL_INTERVAL  = 30 * 60   # 30 phút
 LOG_SAVE_INTERVAL = 24 * 60 * 60  # 24 giờ
