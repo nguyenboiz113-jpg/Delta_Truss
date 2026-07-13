@@ -13,7 +13,7 @@ import sys as _sys
 
 # ── CONFIG ─────────────────────────────────────────────────────────────────────
 SOURCE_DIR     = r"\\105sync01\BLD"
-TARGET_VERSION = "2026.07"
+TARGET_VERSION = "2026.09"
 POLL_INTERVAL  = 30 * 60   # 30 phút zz
 LOG_SAVE_INTERVAL = 24 * 60 * 60  # 24 giờ
 
