@@ -126,7 +126,7 @@ def stop():
         btn_run.config(state=tk.NORMAL)
 
 
-# ── Core logic (không phụ thuộc GUI) ──────────────────────────────────────────
+# ── Core logic (không phụ thuộc GUI) ────────────────────────────────────────── z 
 def _run_core(
     studio_v1, studio_v2,
     base_dirs,
